@@ -1,80 +1,85 @@
-export interface ValidationError {
-    field: string;
-    message: string;
-}
+import Joi from 'joi';
 
-export class ValidationResult {
-    private errors: ValidationError[] = [];
+export const leadSchema = {
+    create: Joi.object({
+        first_name: Joi.string()
+            .regex(/^[A-Za-z]{2,50}$/)
+            .required()
+            .messages({
+                'string.pattern.base': 'First name must contain only alphabets and be between 2-50 characters',
+                'string.empty': 'First name is required',
+                'any.required': 'First name is required'
+            }),
 
-    addError(field: string, message: string) {
-        this.errors.push({ field, message });
-    }
+        last_name: Joi.string()
+            .regex(/^[A-Za-z]{2,50}$/)
+            .required()
+            .messages({
+                'string.pattern.base': 'Last name must contain only alphabets and be between 2-50 characters',
+                'string.empty': 'Last name is required',
+                'any.required': 'Last name is required'
+            }),
 
-    hasErrors(): boolean {
-        return this.errors.length > 0;
-    }
+        mobile: Joi.string()
+            .pattern(/^(\+\d{7,15}|[6-9]\d{9})$/)
+            .required()
+            .messages({
+                'string.pattern.base': 'Invalid mobile number format. Use 10-digit Indian format or international format with country code',
+                'string.empty': 'Mobile number is required',
+                'any.required': 'Mobile number is required'
+            }),
 
-    getErrors(): ValidationError[] {
-        return this.errors;
-    }
-}
+        email: Joi.string()
+            .email()
+            .optional()
+            .allow(null, '')
+            .messages({
+                'string.email': 'Invalid email format'
+            }),
 
-export const validations = {
-    // First name validation: Alphabets only, 2-50 chars
-    isValidName(name: string): boolean {
-        const nameRegex = /^[A-Za-z]{2,50}$/;
-        return nameRegex.test(name);
-    },
+        service_type: Joi.string()
+            .valid('Installation', 'Maintenance')
+            .required()
+            .messages({
+                'any.only': 'Service type must be either Installation or Maintenance',
+                'any.required': 'Service type is required'
+            }),
 
-    // Mobile validation: 10-digit (India) or international E.164 format
-    isValidMobile(mobile: string): boolean {
-        // Indian format: 10 digits starting with 6-9
-        const indianMobileRegex = /^[6-9]\d{9}$/;
-        // International format: E.164 (+ followed by 7-15 digits)
-        const internationalMobileRegex = /^\+\d{7,15}$/;
-        
-        return indianMobileRegex.test(mobile) || internationalMobileRegex.test(mobile);
-    },
+        capacity: Joi.string()
+            .pattern(/^\d+(\.\d+)?\s*(Tons?|KW|KVA|MW|W)$/i)
+            .required()
+            .messages({
+                'string.pattern.base': 'Invalid capacity format. Use format like "2 Tons" or "10 KW"',
+                'string.empty': 'Capacity is required',
+                'any.required': 'Capacity is required'
+            }),
 
-    // Email validation (optional)
-    isValidEmail(email: string | null): boolean {
-        if (!email) return true; // Email is optional
-        const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-        return emailRegex.test(email);
-    },
+        message: Joi.string()
+            .min(5)
+            .max(500)
+            .required()
+            .messages({
+                'string.min': 'Message must be at least 5 characters long',
+                'string.max': 'Message cannot exceed 500 characters',
+                'string.empty': 'Message is required',
+                'any.required': 'Message is required'
+            }),
 
-    // Service type validation
-    isValidServiceType(serviceType: string): boolean {
-        return ['Installation', 'Maintenance'].includes(serviceType);
-    },
+        location: Joi.string()
+            .required()
+            .trim()
+            .min(1)
+            .messages({
+                'string.empty': 'Location is required',
+                'any.required': 'Location is required'
+            }),
 
-    // Capacity validation (e.g., "2 Tons", "10 KW")
-    isValidCapacity(capacity: string): boolean {
-        // Matches patterns like "2 Tons", "10 KW", "5.5 KVA", etc.
-        const capacityRegex = /^\d+(\.\d+)?\s*(Tons?|KW|KVA|MW|W)$/i;
-        return capacityRegex.test(capacity);
-    },
-
-    // Message validation (5-500 chars)
-    isValidMessage(message: string): boolean {
-        return message.length >= 5 && message.length <= 500;
-    },
-
-    // Location validation (not empty)
-    isValidLocation(location: string): boolean {
-        return location.trim().length > 0;
-    },
-
-    // Home type validation
-    isValidHomeType(homeType: string): boolean {
-        const validHomeTypes = [
-            'individual',
-            'agricultural land',
-            'villa',
-            'apartment',
-            'commercial',
-            'industrial'
-        ];
-        return validHomeTypes.includes(homeType.toLowerCase());
-    }
+        home_type: Joi.string()
+            .valid('individual', 'agricultural_land', 'villa', 'apartment', 'commercial', 'industrial')
+            .required()
+            .messages({
+                'any.only': 'Invalid home type selected',
+                'any.required': 'Home type is required'
+            })
+    })
 };
