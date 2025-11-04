@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
-import { db } from '../db';
-import { leadQueries } from '../queries/leadQueries';
+import * as leadQueries from '../queries/leadQueries';
 import { leadSchema } from '../utils/validations';
 
 interface LeadRequest {
@@ -18,8 +17,10 @@ interface LeadRequest {
 export const createLead = async (req: Request, res: Response) => {
     try {
         // Validate request body using Joi
+        console.log("1")
         const { error, value } = leadSchema.create.validate(req.body, { abortEarly: false });
-
+        console.log("Checking error:", error);
+        console.log("Validated value:", value);
         if (error) {
             return res.status(400).json({
                 success: false,
@@ -29,7 +30,7 @@ export const createLead = async (req: Request, res: Response) => {
                 }))
             });
         }
-
+        console.log("1")
         const {
             first_name,
             last_name,
@@ -41,7 +42,7 @@ export const createLead = async (req: Request, res: Response) => {
             location,
             home_type
         }: LeadRequest = value;
-
+        console.log("2")        
         const values = [
             first_name,
             last_name,
@@ -54,18 +55,180 @@ export const createLead = async (req: Request, res: Response) => {
             home_type
         ];
 
-        const [result] = await db.execute(leadQueries.createLead, values);
+        console.log("3")
 
-        res.status(200).json({
+        const id = await leadQueries.createLead({
+            first_name,
+            last_name,
+            mobile,
+            email,
+            service_type,
+            capacity,
+            message,
+            location,
+            home_type
+        });
+        console.log("4")
+
+        const lead = await leadQueries.getLeadById(id);
+
+        res.status(201).json({
             success: true,
-            message: 'Lead created successfully'
+            message: 'Lead created successfully',
+            data: lead
         });
 
     } catch (error) {
         console.error('Error in lead creation:', error);
         res.status(500).json({
             success: false,
-            message: 'Internal server error'
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};
+
+export const getAllLeads = async (req: Request, res: Response) => {
+    try {
+        const leads = await leadQueries.getAllLeads();
+        res.json({
+            success: true,
+            data: leads
+        });
+    } catch (error) {
+        console.error('Error fetching leads:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching leads',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};
+
+export const getLeadById = async (req: Request, res: Response) => {
+    try {
+        const lead = await leadQueries.getLeadById(parseInt(req.params.id));
+        if (!lead) {
+            return res.status(404).json({
+                success: false,
+                message: 'Lead not found'
+            });
+        }
+        res.json({
+            success: true,
+            data: lead
+        });
+    } catch (error) {
+        console.error('Error fetching lead:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching lead',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};
+
+export const getLeadsByDateRange = async (req: Request, res: Response) => {
+    try {
+        const { startDate, endDate } = req.query;
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                success: false,
+                message: 'Start date and end date are required'
+            });
+        }
+
+        const leads = await leadQueries.getLeadsByDateRange(
+            new Date(startDate as string),
+            new Date(endDate as string)
+        );
+        
+        res.json({
+            success: true,
+            data: leads
+        });
+    } catch (error) {
+        console.error('Error fetching leads by date range:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching leads',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};
+
+export const getLeadsByServiceType = async (req: Request, res: Response) => {
+    try {
+        const { serviceType } = req.params;
+        if (serviceType !== 'Installation' && serviceType !== 'Maintenance') {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid service type. Must be either Installation or Maintenance'
+            });
+        }
+
+        const leads = await leadQueries.getLeadsByServiceType(serviceType);
+        res.json({
+            success: true,
+            data: leads
+        });
+    } catch (error) {
+        console.error('Error fetching leads by service type:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching leads',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};
+
+export const getLeadsByHomeType = async (req: Request, res: Response) => {
+    try {
+        const { homeType } = req.params;
+        const validHomeTypes = [
+            'individual',
+            'agricultural_land',
+            'villa',
+            'apartment',
+            'commercial',
+            'industrial'
+        ];
+
+        if (!validHomeTypes.includes(homeType)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid home type'
+            });
+        }
+
+        const leads = await leadQueries.getLeadsByHomeType(homeType as leadQueries.Lead['home_type']);
+        res.json({
+            success: true,
+            data: leads
+        });
+    } catch (error) {
+        console.error('Error fetching leads by home type:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching leads',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};
+
+export const getLeadStats = async (req: Request, res: Response) => {
+    try {
+        const stats = await leadQueries.getLeadStats();
+        res.json({
+            success: true,
+            data: stats
+        });
+    } catch (error) {
+        console.error('Error fetching lead statistics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching lead statistics',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
         });
     }
 };

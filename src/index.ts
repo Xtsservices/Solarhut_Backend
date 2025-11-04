@@ -4,11 +4,15 @@ import cors from 'cors';
 import { db } from './db';
 import { initializeDatabase } from './schema';
 import leadRoutes from './routes/leadRoutes';
+import authRoutes from './routes/authRoutes';
+import contactRoutes from './routes/contactRoutes';
+import employeeRoutes from './routes/employeeRoutes';
+import roleRoutes from './routes/roleRoutes';
 
 dotenv.config();
 
 const app: Express = express();
-const port = process.env.PORT || 3000;
+const port = parseInt(process.env.PORT || '3000', 10);
 
 // Error handling middleware
 const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
@@ -30,8 +34,15 @@ const initApp = async () => {
     // Initialize database tables
     await initializeDatabase();
     
-    // Global Middleware
-    app.use(cors());
+    // CORS configuration
+    app.use(cors({
+      origin: true, // Allow all origins
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With'],
+      exposedHeaders: ['Content-Length', 'Content-Range'],
+      maxAge: 86400, // 24 hours
+      credentials: true
+    }));
     app.use(express.json());
 
     // Welcome route
@@ -56,6 +67,10 @@ const initApp = async () => {
 
     // Mount API routes
     app.use('/api/leads', leadRoutes);
+    app.use('/api/auth', authRoutes);
+    app.use('/api/contacts', contactRoutes);
+    app.use('/api/employees', employeeRoutes);
+    app.use('/api/roles', roleRoutes);
 
     // 404 handler
     app.use((req: Request, res: Response) => {
@@ -68,9 +83,10 @@ const initApp = async () => {
     // Error handler
     app.use(errorHandler);
 
-    app.listen(port, () => {
+    app.listen(port, '0.0.0.0', () => {
       console.log('\n🚀 Server Initialization Complete');
       console.log(`⚡️ Server running at http://localhost:${port}`);
+      console.log(`⚡️ Server also accessible at http://0.0.0.0:${port}`);
       console.log('\n📝 Available Routes:');
       console.log('   GET    /           - Welcome page');
       console.log('   GET    /health     - Health check');
