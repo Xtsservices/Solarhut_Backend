@@ -12,7 +12,7 @@ import roleRoutes from './routes/roleRoutes';
 dotenv.config();
 
 const app: Express = express();
-const port = parseInt(process.env.PORT || '3000', 10);
+const port = parseInt(process.env.PORT || '3300', 10);
 
 // Error handling middleware
 const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {

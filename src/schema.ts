@@ -29,13 +29,10 @@ CREATE TABLE IF NOT EXISTS employees (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )`;
 
-const dropTables = `
-DROP TABLE IF EXISTS employee_roles;
-DROP TABLE IF EXISTS roles;
-`;
+
 
 const createRolesTable = `
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
     role_id INT AUTO_INCREMENT PRIMARY KEY,
     role_name VARCHAR(100) NOT NULL UNIQUE
 )`;
@@ -84,8 +81,8 @@ ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIME
 export const initializeDatabase = async () => {
     try {
         // Drop existing tables and create new ones
-        await db.execute('DROP TABLE IF EXISTS employee_roles');
-await db.execute('DROP TABLE IF EXISTS roles');
+//         await db.execute('DROP TABLE IF EXISTS employee_roles');
+// await db.execute('DROP TABLE IF EXISTS roles');
 
         
         // Create tables
