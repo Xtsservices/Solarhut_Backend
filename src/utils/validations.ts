@@ -60,11 +60,13 @@ export const employeeSchema = {
                 'date.base': 'Invalid joining date',
                 'any.required': 'Joining date is required'
             }),
-        role_id: Joi.number()
+        roles: Joi.array()
+            .items(Joi.number())
+            .min(1)
             .required()
             .messages({
-                'number.base': 'Role ID must be a number',
-                'any.required': 'Role ID is required'
+                'array.min': 'At least one role must be assigned',
+                'any.required': 'At least one role is required'
             })
     }),
     update: Joi.object({

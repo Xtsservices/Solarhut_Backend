@@ -78,3 +78,39 @@ export const getContactsByReason = async (req: Request, res: Response) => {
         });
     }
 };
+
+export const deleteContact = async (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        
+        // Check if contact exists
+        const contact = await contactQueries.getContactById(id);
+        if (!contact) {
+            return res.status(404).json({
+                success: false,
+                message: 'Contact not found'
+            });
+        }
+
+        // Delete the contact
+        const deleted = await contactQueries.deleteContact(id);
+        if (deleted) {
+            res.json({
+                success: true,
+                message: 'Contact deleted successfully'
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                message: 'Failed to delete contact'
+            });
+        }
+    } catch (error) {
+        console.error('Error deleting contact:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting contact',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};

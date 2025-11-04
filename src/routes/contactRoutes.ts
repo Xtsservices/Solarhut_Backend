@@ -1,5 +1,5 @@
 import express from 'express';
-import { createContact, getAllContacts, getContactById, getContactsByReason } from '../controllers/contactController';
+import { createContact, getAllContacts, getContactById, getContactsByReason, deleteContact } from '../controllers/contactController';
 import { validateRequest } from '../middleware/validateRequest';
 import { contactSchema } from '../utils/validations';
 
@@ -24,5 +24,10 @@ router.get('/:id', getContactById);
 // @desc    Get contacts by reason
 // @access  Private (TODO: Add authentication)
 router.get('/reason/:reason', getContactsByReason);
+
+// @route   DELETE /api/contacts/:id
+// @desc    Delete a contact
+// @access  Private (TODO: Add authentication)
+router.delete('/:id', deleteContact);
 
 export default router;

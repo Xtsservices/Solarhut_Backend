@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS employees (
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
-    role_id INT NOT NULL,
     mobile VARCHAR(15) NOT NULL,
     password VARCHAR(255) NOT NULL,
     date_of_birth DATE,
@@ -27,8 +26,7 @@ CREATE TABLE IF NOT EXISTS employees (
     joining_date DATE NOT NULL,
     status ENUM('Active', 'Inactive', 'On Leave') DEFAULT 'Active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (role_id) REFERENCES roles(role_id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )`;
 
 const dropTables = `
@@ -40,6 +38,16 @@ const createRolesTable = `
 CREATE TABLE roles (
     role_id INT AUTO_INCREMENT PRIMARY KEY,
     role_name VARCHAR(100) NOT NULL UNIQUE
+)`;
+
+const createEmployeeRolesTable = `
+CREATE TABLE IF NOT EXISTS employee_roles (
+    employee_id INT NOT NULL,
+    role_id INT NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (employee_id, role_id),
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE
 )`;
 
 const createLeadsTable = `
@@ -83,6 +91,7 @@ await db.execute('DROP TABLE IF EXISTS roles');
         // Create tables
         await db.execute(createRolesTable);
         await db.execute(createEmployeesTable);
+        await db.execute(createEmployeeRolesTable);
         await db.execute(createContactsTable);
         await db.execute(createLeadsTable);
 

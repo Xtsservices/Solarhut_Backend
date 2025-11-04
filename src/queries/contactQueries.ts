@@ -43,3 +43,11 @@ export const getContactsByReason = async (reason: string) => {
     );
     return contacts;
 };
+
+export const deleteContact = async (id: number): Promise<boolean> => {
+    const [result] = await db.execute<ResultSetHeader>(
+        'DELETE FROM contacts WHERE id = ?',
+        [id]
+    );
+    return result.affectedRows > 0;
+};

@@ -2,18 +2,14 @@ import { db } from '../db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 
 export interface Role extends RowDataPacket {
-    id: number;
-    name: 'Sales Person' | 'Field Executive' | 'Installation Technician';
-    description: string;
-}
-
-interface EmployeeRole extends RowDataPacket {
-    id: number;
-    employee_id: number;
     role_id: number;
     role_name: string;
-    assigned_date: Date;
-    status: 'Active' | 'Inactive';
+}
+
+interface EmployeeRole {
+    role_id: number;
+    role_name: string;
+    assigned_at: Date;
 }
 
 export interface Employee extends RowDataPacket {
@@ -24,7 +20,6 @@ export interface Employee extends RowDataPacket {
     email: string;
     mobile: string;
     password: string;
-    role_id: number;
     date_of_birth?: Date;
     address?: string;
     joining_date: Date;
