@@ -44,7 +44,9 @@ const createEmployeeRolesTable = `
 CREATE TABLE IF NOT EXISTS employee_roles (
     employee_id INT NOT NULL,
     role_id INT NOT NULL,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
     assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (employee_id, role_id),
     FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
     FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE

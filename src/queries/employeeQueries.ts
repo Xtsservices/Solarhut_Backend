@@ -9,7 +9,9 @@ export interface Role extends RowDataPacket {
 interface EmployeeRole {
     role_id: number;
     role_name: string;
+    status: 'Active' | 'Inactive';
     assigned_at: Date;
+    updated_at: Date;
 }
 
 export interface Employee extends RowDataPacket {
