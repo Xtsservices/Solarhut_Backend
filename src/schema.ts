@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS contacts (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )`;
 
+const dropRoleIdColumn = `
+ALTER TABLE employees
+DROP COLUMN role_id`;
+
 const createEmployeesTable = `
 CREATE TABLE IF NOT EXISTS employees (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -20,8 +24,7 @@ CREATE TABLE IF NOT EXISTS employees (
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
     mobile VARCHAR(15) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    date_of_birth DATE,
+    password VARCHAR(255),
     address TEXT,
     joining_date DATE NOT NULL,
     status ENUM('Active', 'Inactive', 'On Leave') DEFAULT 'Active',
@@ -35,7 +38,7 @@ DROP TABLE IF EXISTS roles;
 `;
 
 const createRolesTable = `
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
     role_id INT AUTO_INCREMENT PRIMARY KEY,
     role_name VARCHAR(100) NOT NULL UNIQUE
 )`;
@@ -83,19 +86,52 @@ ALTER TABLE leads
 ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 `;
 
+const insertDefaultRoles = async () => {
+    const defaultRoles = [
+        'Sales Person',
+        'Field Executive',
+        'Installation Technician'
+    ];
+
+    for (const roleName of defaultRoles) {
+        await db.execute(
+            'INSERT IGNORE INTO roles (role_name) VALUES (?)',
+            [roleName]
+        );
+    }
+};
+
 export const initializeDatabase = async () => {
     try {
-        // Drop existing tables and create new ones
+        // Drop only employee_roles table, preserve roles
         await db.execute('DROP TABLE IF EXISTS employee_roles');
-await db.execute('DROP TABLE IF EXISTS roles');
-
         
         // Create tables
         await db.execute(createRolesTable);
         await db.execute(createEmployeesTable);
+        
+        // Try to drop role_id column if it exists
+        try {
+            await db.execute(dropRoleIdColumn);
+        } catch (error) {
+            // Ignore error if column doesn't exist
+            console.log('Note: role_id column might not exist, continuing...');
+        }
+
+        // Modify password column to be nullable and remove date_of_birth
+        try {
+            await db.execute('ALTER TABLE employees MODIFY COLUMN password VARCHAR(255) NULL');
+            await db.execute('ALTER TABLE employees DROP COLUMN IF EXISTS date_of_birth');
+        } catch (error) {
+            console.log('Note: schema modification failed, continuing...');
+        }
+        
         await db.execute(createEmployeeRolesTable);
         await db.execute(createContactsTable);
         await db.execute(createLeadsTable);
+        
+        // Insert default roles if they don't exist
+        await insertDefaultRoles();
 
         // Check if updated_at column exists
         const [rows] = await db.execute(columnExistsQuery, ['updated_at']) as any;

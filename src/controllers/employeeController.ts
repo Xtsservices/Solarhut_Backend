@@ -13,14 +13,23 @@ export const createEmployee = async (req: Request, res: Response) => {
             });
         }
 
-        // Hash password
-        const hashedPassword = await hashPassword(req.body.password);
-
         // Create employee
-        const { insertId, userId } = await employeeQueries.createEmployee({
-            ...req.body,
-            password: hashedPassword
-        });
+        const { roles, ...employeeData } = req.body;
+        const { insertId, userId } = await employeeQueries.createEmployee(employeeData);
+
+        // Assign roles if provided
+        if (Array.isArray(roles) && roles.length > 0) {
+            try {
+                await employeeQueries.assignRolesToEmployee(insertId, roles);
+            } catch (error: any) {
+                // If role assignment fails, delete the employee and throw error
+                await employeeQueries.deleteEmployee(insertId);
+                return res.status(400).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+        }
 
         // Get complete employee data with roles
         const employee = await employeeQueries.getEmployeeById(insertId);
@@ -137,11 +146,10 @@ export const updateEmployee = async (req: Request, res: Response) => {
             }
         }
 
-        // Extract role IDs from request if present
-        const { roles, ...updateData } = req.body;
-        const roleIds = roles ? roles.map((r: any) => r.role_id) : undefined;
+        // Exclude roles from updateData as they should be handled separately
+        const { roles, password, ...updateData } = req.body;
 
-        const updated = await employeeQueries.updateEmployee(employeeId, { ...updateData, roles: roleIds } as any);
+        const updated = await employeeQueries.updateEmployee(employeeId, updateData);
         if (!updated) {
             return res.status(400).json({
                 success: false,
@@ -210,9 +218,22 @@ export const assignRoles = async (req: Request, res: Response) => {
         }
 
         const { roles } = req.body;
-        const roleIds = roles.map((role: any) => role.role_id);
+        if (!Array.isArray(roles) || roles.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide at least one role'
+            });
+        }
 
-        await employeeQueries.updateEmployee(employeeId, { roles: roleIds } as any);
+        const roleIds = roles.map((role: any) => role.role_id);
+        if (roleIds.some((id: any) => !id || typeof id !== 'number')) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid role_id format'
+            });
+        }
+
+        await employeeQueries.assignRolesToEmployee(employeeId, roleIds);
         const updatedEmployee = await employeeQueries.getEmployeeById(employeeId);
 
         res.json({
@@ -228,6 +249,43 @@ export const assignRoles = async (req: Request, res: Response) => {
         res.status(500).json({
             success: false,
             message: 'Error assigning roles',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};
+
+export const deleteEmployee = async (req: Request, res: Response) => {
+    try {
+        const employeeId = parseInt(req.params.id);
+        
+        // Check if employee exists
+        const employee = await employeeQueries.getEmployeeById(employeeId);
+        if (!employee) {
+            return res.status(404).json({
+                success: false,
+                message: 'Employee not found'
+            });
+        }
+
+        // Delete employee and their role assignments
+        const deleted = await employeeQueries.deleteEmployee(employeeId);
+
+        if (!deleted) {
+            return res.status(400).json({
+                success: false,
+                message: 'Failed to delete employee'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Employee deleted successfully'
+        });
+    } catch (error) {
+        console.error('Error deleting employee:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting employee',
             error: process.env.NODE_ENV === 'development' ? error : undefined
         });
     }

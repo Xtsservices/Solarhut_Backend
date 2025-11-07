@@ -34,20 +34,6 @@ export const employeeSchema = {
                 'string.empty': 'Mobile number is required',
                 'any.required': 'Mobile number is required'
             }),
-        password: Joi.string()
-            .min(6)
-            .required()
-            .messages({
-                'string.min': 'Password must be at least 6 characters long',
-                'string.empty': 'Password is required',
-                'any.required': 'Password is required'
-            }),
-        date_of_birth: Joi.date()
-            .max('now')
-            .optional()
-            .messages({
-                'date.max': 'Date of birth cannot be in the future'
-            }),
         address: Joi.string()
             .max(500)
             .optional()
@@ -61,12 +47,13 @@ export const employeeSchema = {
                 'any.required': 'Joining date is required'
             }),
         roles: Joi.array()
-            .items(Joi.number())
+            .items(Joi.string().trim())
             .min(1)
             .required()
             .messages({
                 'array.min': 'At least one role must be assigned',
-                'any.required': 'At least one role is required'
+                'any.required': 'At least one role is required',
+                'string.base': 'Role names must be strings'
             })
     }),
     update: Joi.object({
@@ -108,7 +95,9 @@ export const employeeSchema = {
     }),
     assignRoles: Joi.object({
         roles: Joi.array()
-            .items(Joi.number())
+            .items(Joi.object({
+                role_id: Joi.number().required()
+            }))
             .min(1)
             .required()
             .messages({

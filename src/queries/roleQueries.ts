@@ -15,7 +15,7 @@ export const createRole = async (roleName: Role['role_name']) => {
 };
 
 export const getAllRoles = async () => {
-    const [roles] = await db.execute<Role[]>('SELECT * FROM roles');
+    const [roles] = await db.execute<Role[]>('SELECT role_name FROM roles ORDER BY role_name ASC');
     return roles;
 };
 
@@ -27,10 +27,21 @@ export const getRoleById = async (roleId: number) => {
     return roles[0];
 };
 
-export const removeRole = async (roleId: number) => {
+export const removeRoleByName = async (roleName: string) => {
+    // First, check if role is assigned to any employees
+    const [assignments] = await db.execute<RowDataPacket[]>(
+        'SELECT COUNT(*) as count FROM employee_roles er JOIN roles r ON er.role_id = r.role_id WHERE r.role_name = ?',
+        [roleName]
+    );
+
+    if (assignments[0].count > 0) {
+        throw new Error('Cannot delete role: It is assigned to one or more employees');
+    }
+
+    // If no assignments, delete the role
     const [result] = await db.execute<ResultSetHeader>(
-        'DELETE FROM roles WHERE role_id = ?',
-        [roleId]
+        'DELETE FROM roles WHERE role_name = ?',
+        [roleName]
     );
     return result.affectedRows > 0;
 };

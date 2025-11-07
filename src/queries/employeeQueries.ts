@@ -40,22 +40,19 @@ export const generateUserId = async (): Promise<string> => {
 };
 
 // Create a new employee
-export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'password' | 'date_of_birth'>) => {
     const userId = await generateUserId();
     const [result] = await db.execute<ResultSetHeader>(
         `INSERT INTO employees (
-            user_id, first_name, last_name, email, mobile, password,
-            role_id, date_of_birth, address, joining_date, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            user_id, first_name, last_name, email, mobile,
+            address, joining_date, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             userId,
             employeeData.first_name,
             employeeData.last_name,
             employeeData.email,
             employeeData.mobile,
-            employeeData.password,
-            employeeData.role_id,
-            employeeData.date_of_birth || null,
             employeeData.address || null,
             employeeData.joining_date,
             employeeData.status || 'Active'
@@ -64,13 +61,31 @@ export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'user_i
     return { insertId: result.insertId, userId };
 };
 
+// Get role IDs by names
+export const getRolesByNames = async (roleNames: string[]) => {
+    const placeholders = roleNames.map(() => '?').join(',');
+    const [roles] = await db.execute<Role[]>(
+        `SELECT role_id, role_name FROM roles WHERE role_name IN (${placeholders})`,
+        roleNames
+    );
+    return roles;
+};
+
 // Assign roles to an employee
-export const assignRolesToEmployee = async (employeeId: number, roleIds: number[]) => {
-    const values = roleIds.map(roleId => [employeeId, roleId, new Date()]);
+export const assignRolesToEmployee = async (employeeId: number, roleNames: string[]) => {
+    // Get role IDs first
+    const roles = await getRolesByNames(roleNames);
+    
+    if (roles.length !== roleNames.length) {
+        const foundRoles = roles.map(r => r.role_name);
+        const missingRoles = roleNames.filter(name => !foundRoles.includes(name));
+        throw new Error(`Some roles do not exist: ${missingRoles.join(', ')}`);
+    }
+
+    const values = roles.map(role => `(${employeeId}, ${role.role_id}, NOW())`).join(',');
     const [result] = await db.execute<ResultSetHeader>(
-        `INSERT INTO employee_roles (employee_id, role_id, assigned_date)
-         VALUES ?`,
-        [values]
+        `INSERT INTO employee_roles (employee_id, role_id, assigned_at)
+         VALUES ${values}`
     );
     return result.affectedRows;
 };
@@ -79,13 +94,13 @@ export const assignRolesToEmployee = async (employeeId: number, roleIds: number[
 export const getEmployeeById = async (id: number) => {
     const [employees] = await db.execute<Employee[]>(
         `SELECT e.*, 
-            GROUP_CONCAT(r.name) as role_names,
-            GROUP_CONCAT(er.id) as role_ids,
-            GROUP_CONCAT(er.assigned_date) as role_assigned_dates,
+            GROUP_CONCAT(r.role_name) as role_names,
+            GROUP_CONCAT(er.role_id) as role_ids,
+            GROUP_CONCAT(er.assigned_at) as role_assigned_dates,
             GROUP_CONCAT(er.status) as role_statuses
          FROM employees e
          LEFT JOIN employee_roles er ON e.id = er.employee_id
-         LEFT JOIN roles r ON er.role_id = r.id
+         LEFT JOIN roles r ON er.role_id = r.role_id
          WHERE e.id = ?
          GROUP BY e.id`,
         [id]
@@ -155,16 +170,45 @@ export const updateEmployee = async (id: number, updates: Partial<Employee>) => 
 };
 
 // Get all employees with their roles
+// Delete employee
+export const deleteEmployee = async (id: number): Promise<boolean> => {
+    // Start transaction to handle both employee_roles and employees tables
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+        // First delete from employee_roles (foreign key constraint)
+        await connection.execute(
+            'DELETE FROM employee_roles WHERE employee_id = ?',
+            [id]
+        );
+
+        // Then delete from employees
+        const [result] = await connection.execute<ResultSetHeader>(
+            'DELETE FROM employees WHERE id = ?',
+            [id]
+        );
+
+        await connection.commit();
+        return result.affectedRows > 0;
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+};
+
 export const getAllEmployees = async () => {
     const [employees] = await db.execute<Employee[]>(
         `SELECT e.*, 
-            GROUP_CONCAT(r.name) as role_names,
-            GROUP_CONCAT(er.id) as role_ids,
-            GROUP_CONCAT(er.assigned_date) as role_assigned_dates,
+            GROUP_CONCAT(r.role_name) as role_names,
+            GROUP_CONCAT(er.role_id) as role_ids,
+            GROUP_CONCAT(er.assigned_at) as role_assigned_dates,
             GROUP_CONCAT(er.status) as role_statuses
          FROM employees e
          LEFT JOIN employee_roles er ON e.id = er.employee_id
-         LEFT JOIN roles r ON er.role_id = r.id
+         LEFT JOIN roles r ON er.role_id = r.role_id
          GROUP BY e.id
          ORDER BY e.created_at DESC`
     );

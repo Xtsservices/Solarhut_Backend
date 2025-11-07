@@ -43,9 +43,11 @@ export const createRole = async (req: Request, res: Response) => {
 export const getAllRoles = async (req: Request, res: Response) => {
     try {
         const roles = await roleQueries.getAllRoles();
+        const roleNames = roles.map(role => role.role_name);
+        
         res.json({
             success: true,
-            data: roles
+            data: roleNames
         });
     } catch (error) {
         console.error('Error fetching roles:', error);
@@ -59,21 +61,38 @@ export const getAllRoles = async (req: Request, res: Response) => {
 
 export const deleteRole = async (req: Request, res: Response) => {
     try {
-        const roleId = parseInt(req.params.id);
-        const role = await roleQueries.getRoleById(roleId);
+        const roleName = req.params.roleName;
         
-        if (!role) {
-            return res.status(404).json({
+        // Validate role name
+        if (!roleName || typeof roleName !== 'string' || roleName.trim().length === 0) {
+            return res.status(400).json({
                 success: false,
-                message: 'Role not found'
+                message: 'Valid role name is required'
             });
         }
 
-        await roleQueries.removeRole(roleId);
-        res.json({
-            success: true,
-            message: 'Role deleted successfully'
-        });
+        try {
+            const deleted = await roleQueries.removeRoleByName(roleName);
+            if (!deleted) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Role not found'
+                });
+            }
+
+            res.json({
+                success: true,
+                message: `Role "${roleName}" deleted successfully`
+            });
+        } catch (err: any) {
+            if (err.message.includes('Cannot delete role')) {
+                return res.status(400).json({
+                    success: false,
+                    message: err.message
+                });
+            }
+            throw err;
+        }
     } catch (error) {
         console.error('Error deleting role:', error);
         res.status(500).json({
