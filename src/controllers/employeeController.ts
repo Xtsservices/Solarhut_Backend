@@ -1,15 +1,21 @@
 import { Request, Response } from 'express';
 import * as employeeQueries from '../queries/employeeQueries';
-import { hashPassword } from '../utils/authUtils';
 
 export const createEmployee = async (req: Request, res: Response) => {
     try {
-        // Check if email already exists
+        // Check if email or mobile already exists
         const existingEmployee = await employeeQueries.getEmployeeByEmail(req.body.email);
+        const existingMobile = await employeeQueries.getEmployeeByMobile(req.body.mobile);
         if (existingEmployee) {
             return res.status(400).json({
                 success: false,
                 message: 'Email already registered'
+            });
+        }
+        if (existingMobile) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mobile number already registered'
             });
         }
 
@@ -147,7 +153,7 @@ export const updateEmployee = async (req: Request, res: Response) => {
         }
 
         // Exclude roles from updateData as they should be handled separately
-        const { roles, password, ...updateData } = req.body;
+        const { roles, ...updateData } = req.body;
 
         const updated = await employeeQueries.updateEmployee(employeeId, updateData);
         if (!updated) {

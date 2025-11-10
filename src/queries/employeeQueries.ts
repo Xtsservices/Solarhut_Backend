@@ -140,6 +140,12 @@ export const getEmployeeByEmail = async (email: string) => {
     return employees[0];
 };
 
+// Get employee by mobile
+export const getEmployeeByMobile = async (mobile: string) => {
+    const [employees] = await db.execute<Employee[]>('SELECT * FROM employees WHERE mobile = ?', [mobile]);
+    return employees[0];
+};
+
 // Get employee by user_id
 export const getEmployeeByUserId = async (userId: string) => {
     const [employees] = await db.execute<Employee[]>('SELECT * FROM employees WHERE user_id = ?', [userId]);

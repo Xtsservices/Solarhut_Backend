@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS employees (
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
     mobile VARCHAR(15) NOT NULL,
-    password VARCHAR(255),
     address TEXT,
     joining_date DATE NOT NULL,
     status ENUM('Active', 'Inactive', 'On Leave') DEFAULT 'Active',
@@ -55,21 +54,40 @@ CREATE TABLE IF NOT EXISTS employee_roles (
     FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE
 )`;
 
+const createOTPVerificationTable = `
+CREATE TABLE IF NOT EXISTS otp_verifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    mobile VARCHAR(15) NOT NULL,
+    otp VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    verified BOOLEAN DEFAULT FALSE,
+    attempts INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_mobile (mobile),
+    INDEX idx_expires (expires_at)
+)`;
+
+const dropLeadsTable = `DROP TABLE IF EXISTS leads`;
+
 const createLeadsTable = `
-CREATE TABLE IF NOT EXISTS leads (
+CREATE TABLE leads (
     id INT AUTO_INCREMENT PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     mobile VARCHAR(15) NOT NULL,
     email VARCHAR(100),
     service_type ENUM('Installation', 'Maintenance') NOT NULL,
+    solar_service ENUM('Residential Solar', 'Commercial Solar', 'Industrial Solar') NOT NULL,
     capacity VARCHAR(50),
     message TEXT,
     location VARCHAR(255) NOT NULL,
-    home_type VARCHAR(100) NOT NULL,
+    property_type VARCHAR(100) NOT NULL,
     channel VARCHAR(20) DEFAULT 'WEB',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_solar_service (solar_service),
+    INDEX idx_property_type (property_type),
+    INDEX idx_created_at (created_at)
 )`;
 
 // Function to check if a column exists
@@ -118,17 +136,23 @@ export const initializeDatabase = async () => {
             console.log('Note: role_id column might not exist, continuing...');
         }
 
-        // Modify password column to be nullable and remove date_of_birth
+        // Remove password and date_of_birth columns permanently
         try {
-            await db.execute('ALTER TABLE employees MODIFY COLUMN password VARCHAR(255) NULL');
+            await db.execute('ALTER TABLE employees DROP COLUMN IF EXISTS password');
             await db.execute('ALTER TABLE employees DROP COLUMN IF EXISTS date_of_birth');
         } catch (error) {
-            console.log('Note: schema modification failed, continuing...');
+            console.log('Note: column removal failed, continuing...');
         }
         
         await db.execute(createEmployeeRolesTable);
         await db.execute(createContactsTable);
+
+        // Drop and recreate leads table with new structure
+        console.log('Dropping existing leads table...');
+        await db.execute(dropLeadsTable);
+        console.log('Creating new leads table with updated structure...');
         await db.execute(createLeadsTable);
+        console.log('✅ Leads table successfully recreated with new structure');
         
         // Insert default roles if they don't exist
         await insertDefaultRoles();
@@ -140,6 +164,9 @@ export const initializeDatabase = async () => {
         if (rows[0].count === 0) {
             await db.execute(addUpdatedAtColumn);
         }
+
+        // Create OTP verification table
+        await db.execute(createOTPVerificationTable);
 
         console.log('Database tables initialized successfully');
     } catch (error) {
