@@ -5,7 +5,9 @@ import {
     getLeadById,
     getLeadsByDateRange,
     getLeadsByServiceType,
-    getLeadsByHomeType,
+    getLeadsByPropertyType,
+    getLeadsBySolarService,
+    getPropertyTypesForSolarService,
     getLeadStats
 } from '../controllers/leadController';
 
@@ -36,10 +38,20 @@ router.get('/date', getLeadsByDateRange);
 // @access  Private
 router.get('/service/:serviceType', getLeadsByServiceType);
 
-// @route   GET /api/leads/home/:homeType
-// @desc    Get leads by home type
+// @route   GET /api/leads/property/:propertyType
+// @desc    Get leads by property type
 // @access  Private
-router.get('/home/:homeType', getLeadsByHomeType);
+router.get('/property/:propertyType', getLeadsByPropertyType);
+
+// @route   GET /api/leads/solar/:solarService
+// @desc    Get leads by solar service type
+// @access  Private
+router.get('/solar/:solarService', getLeadsBySolarService);
+
+// @route   GET /api/leads/solar/:solarService/property-types
+// @desc    Get valid property types for a solar service
+// @access  Public
+router.get('/solar/:solarService/property-types', getPropertyTypesForSolarService);
 
 // @route   GET /api/leads/:id
 // @desc    Get lead by ID

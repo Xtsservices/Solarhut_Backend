@@ -34,20 +34,6 @@ export const employeeSchema = {
                 'string.empty': 'Mobile number is required',
                 'any.required': 'Mobile number is required'
             }),
-        password: Joi.string()
-            .min(6)
-            .required()
-            .messages({
-                'string.min': 'Password must be at least 6 characters long',
-                'string.empty': 'Password is required',
-                'any.required': 'Password is required'
-            }),
-        date_of_birth: Joi.date()
-            .max('now')
-            .optional()
-            .messages({
-                'date.max': 'Date of birth cannot be in the future'
-            }),
         address: Joi.string()
             .max(500)
             .optional()
@@ -61,12 +47,13 @@ export const employeeSchema = {
                 'any.required': 'Joining date is required'
             }),
         roles: Joi.array()
-            .items(Joi.number())
+            .items(Joi.string().trim())
             .min(1)
             .required()
             .messages({
                 'array.min': 'At least one role must be assigned',
-                'any.required': 'At least one role is required'
+                'any.required': 'At least one role is required',
+                'string.base': 'Role names must be strings'
             })
     }),
     update: Joi.object({
@@ -108,7 +95,9 @@ export const employeeSchema = {
     }),
     assignRoles: Joi.object({
         roles: Joi.array()
-            .items(Joi.number())
+            .items(Joi.object({
+                role_id: Joi.number().required()
+            }))
             .min(1)
             .required()
             .messages({
@@ -168,64 +157,7 @@ export const contactSchema = {
 };
 
 export const authSchema = {
-    login: Joi.object({
-        email: Joi.string()
-            .email()
-            .required()
-            .messages({
-                'string.email': 'Invalid email format',
-                'string.empty': 'Email is required',
-                'any.required': 'Email is required'
-            }),
-        password: Joi.string()
-            .min(6)
-            .required()
-            .messages({
-                'string.min': 'Password must be at least 6 characters long',
-                'string.empty': 'Password is required',
-                'any.required': 'Password is required'
-            })
-    }),
-    register: Joi.object({
-        title: Joi.string()
-            .valid('Sales Person', 'Field Executive', 'Installation Technician')
-            .required()
-            .messages({
-                'any.only': 'Invalid role title',
-                'any.required': 'Role title is required'
-            }),
-        first_name: Joi.string()
-            .regex(/^[A-Za-z]{2,50}$/)
-            .required()
-            .messages({
-                'string.pattern.base': 'First name must contain only alphabets and be between 2-50 characters',
-                'string.empty': 'First name is required',
-                'any.required': 'First name is required'
-            }),
-        last_name: Joi.string()
-            .regex(/^[A-Za-z]{2,50}$/)
-            .required()
-            .messages({
-                'string.pattern.base': 'Last name must contain only alphabets and be between 2-50 characters',
-                'string.empty': 'Last name is required',
-                'any.required': 'Last name is required'
-            }),
-        email: Joi.string()
-            .email()
-            .required()
-            .messages({
-                'string.email': 'Invalid email format',
-                'string.empty': 'Email is required',
-                'any.required': 'Email is required'
-            }),
-        password: Joi.string()
-            .min(6)
-            .required()
-            .messages({
-                'string.min': 'Password must be at least 6 characters long',
-                'string.empty': 'Password is required',
-                'any.required': 'Password is required'
-            }),
+    requestOTP: Joi.object({
         mobile: Joi.string()
             .pattern(/^(\+\d{7,15}|[6-9]\d{9})$/)
             .required()
@@ -233,6 +165,24 @@ export const authSchema = {
                 'string.pattern.base': 'Invalid mobile number format. Use 10-digit Indian format or international format with country code',
                 'string.empty': 'Mobile number is required',
                 'any.required': 'Mobile number is required'
+            })
+    }),
+    verifyOTP: Joi.object({
+        mobile: Joi.string()
+            .pattern(/^(\+\d{7,15}|[6-9]\d{9})$/)
+            .required()
+            .messages({
+                'string.pattern.base': 'Invalid mobile number format',
+                'string.empty': 'Mobile number is required',
+                'any.required': 'Mobile number is required'
+            }),
+        otp: Joi.string()
+            .pattern(/^\d{6}$/)
+            .required()
+            .messages({
+                'string.pattern.base': 'OTP must be 6 digits',
+                'string.empty': 'OTP is required',
+                'any.required': 'OTP is required'
             })
     })
 };
@@ -329,6 +279,14 @@ export const leadSchema = {
                 'any.required': 'Service type is required'
             }),
 
+        solar_service: Joi.string()
+            .valid('Residential Solar', 'Commercial Solar', 'Industrial Solar')
+            .required()
+            .messages({
+                'any.only': 'Solar service must be either Residential Solar, Commercial Solar or Industrial Solar',
+                'any.required': 'Solar service is required'
+            }),
+
         capacity: Joi.string()
             .pattern(/^\d+(\.\d+)?\s*(Tons?|KW|KVA|MW|W)$/i)
             .required()
@@ -358,12 +316,20 @@ export const leadSchema = {
                 'any.required': 'Location is required'
             }),
 
-        home_type: Joi.string()
-            .valid('individual', 'agricultural_land', 'villa', 'apartment', 'commercial', 'industrial')
+        property_type: Joi.string()
             .required()
+            .when('solar_service', {
+                is: 'Residential Solar',
+                then: Joi.string().valid('Independent House', 'Apartment', 'Villa', 'Farmhouse', 'Others'),
+                otherwise: Joi.when('solar_service', {
+                    is: 'Commercial Solar',
+                    then: Joi.string().valid('Office Building', 'Shop/Showroom', 'Shopping Mall', 'Hotel/Resort', 'Hospital', 'School/College', 'Others'),
+                    otherwise: Joi.string().valid('Factory', 'Warehouse', 'Manufacturing Unit', 'Processing Plant', 'Others')
+                })
+            })
             .messages({
-                'any.only': 'Invalid home type selected',
-                'any.required': 'Home type is required'
+                'any.only': 'Invalid property type for selected solar service',
+                'any.required': 'Property type is required'
             })
     })
 };

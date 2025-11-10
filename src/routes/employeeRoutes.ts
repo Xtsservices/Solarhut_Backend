@@ -6,7 +6,8 @@ import {
     getEmployeeByUserId,
     updateEmployee,
     getEmployeesByRole,
-    assignRoles
+    assignRoles,
+    deleteEmployee
 } from '../controllers/employeeController';
 import { validateRequest } from '../middleware/validateRequest';
 import { employeeSchema } from '../utils/validations';
@@ -47,5 +48,10 @@ router.put('/:id', validateRequest(employeeSchema.update), updateEmployee);
 // @desc    Assign roles to an employee
 // @access  Private (Admin only)
 router.post('/:id/roles', validateRequest(employeeSchema.assignRoles), assignRoles);
+
+// @route   DELETE /api/employees/:id
+// @desc    Delete an employee and their role assignments
+// @access  Private (Admin only)
+router.delete('/:id', deleteEmployee);
 
 export default router;

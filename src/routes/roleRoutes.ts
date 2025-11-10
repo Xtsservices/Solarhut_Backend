@@ -11,7 +11,7 @@ router.get('/', roleController.getAllRoles);
 // Create new role
 router.post('/', validateRequest(roleSchema.create), roleController.createRole);
 
-// Delete role
-router.delete('/:id', roleController.deleteRole);
+// Delete role by name
+router.delete('/:roleName', roleController.deleteRole);
 
 export default router;

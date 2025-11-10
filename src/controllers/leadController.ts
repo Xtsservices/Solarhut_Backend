@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as leadQueries from '../queries/leadQueries';
 import { leadSchema } from '../utils/validations';
+import { getPropertyTypesBySolarService, validatePropertyTypeForSolarService } from '../utils/propertyTypes';
 
 interface LeadRequest {
     first_name: string;
@@ -8,10 +9,11 @@ interface LeadRequest {
     mobile: string;
     email?: string;
     service_type: 'Installation' | 'Maintenance';
+    solar_service: 'Residential Solar' | 'Commercial Solar' | 'Industrial Solar';
     capacity: string;
     message: string;
     location: string;
-    home_type: string;
+    property_type: string;
 }
 
 export const createLead = async (req: Request, res: Response) => {
@@ -37,10 +39,11 @@ export const createLead = async (req: Request, res: Response) => {
             mobile,
             email,
             service_type,
+            solar_service,
             capacity,
             message,
             location,
-            home_type
+            property_type
         }: LeadRequest = value;
         console.log("2")        
         const values = [
@@ -49,10 +52,11 @@ export const createLead = async (req: Request, res: Response) => {
             mobile,
             email || null,
             service_type,
+            solar_service,
             capacity,
             message,
             location,
-            home_type
+            property_type
         ];
 
         console.log("3")
@@ -63,10 +67,11 @@ export const createLead = async (req: Request, res: Response) => {
             mobile,
             email,
             service_type,
+            solar_service,
             capacity,
             message,
             location,
-            home_type
+            property_type
         });
         console.log("4")
 
@@ -182,32 +187,86 @@ export const getLeadsByServiceType = async (req: Request, res: Response) => {
     }
 };
 
-export const getLeadsByHomeType = async (req: Request, res: Response) => {
+export const getPropertyTypesForSolarService = async (req: Request, res: Response) => {
     try {
-        const { homeType } = req.params;
-        const validHomeTypes = [
-            'individual',
-            'agricultural_land',
-            'villa',
-            'apartment',
-            'commercial',
-            'industrial'
-        ];
+        const { solarService } = req.params;
+        const validSolarServices = ['Residential Solar', 'Commercial Solar', 'Industrial Solar'];
 
-        if (!validHomeTypes.includes(homeType)) {
+        if (!validSolarServices.includes(solarService)) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid home type'
+                message: 'Invalid solar service type'
             });
         }
 
-        const leads = await leadQueries.getLeadsByHomeType(homeType as leadQueries.Lead['home_type']);
+        const propertyTypes = getPropertyTypesBySolarService(solarService);
+        res.json({
+            success: true,
+            data: propertyTypes
+        });
+    } catch (error) {
+        console.error('Error getting property types:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error getting property types',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};
+
+export const getLeadsByPropertyType = async (req: Request, res: Response) => {
+    try {
+        const { propertyType } = req.params;
+        const { solarService } = req.query;
+
+        if (!solarService) {
+            return res.status(400).json({
+                success: false,
+                message: 'Solar service type is required'
+            });
+        }
+
+        if (!validatePropertyTypeForSolarService(propertyType, solarService as string)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid property type for selected solar service'
+            });
+        }
+
+        const leads = await leadQueries.getLeadsByPropertyType(propertyType as leadQueries.Lead['property_type']);
         res.json({
             success: true,
             data: leads
         });
     } catch (error) {
         console.error('Error fetching leads by home type:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching leads',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};
+
+export const getLeadsBySolarService = async (req: Request, res: Response) => {
+    try {
+        const { solarService } = req.params;
+        const validSolarServices = ['Residential Solar', 'Commercial Solar', 'Industrial Solar'];
+
+        if (!validSolarServices.includes(solarService)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid solar service type. Must be Residential Solar, Commercial Solar, or Industrial Solar'
+            });
+        }
+
+        const leads = await leadQueries.getLeadsBySolarService(solarService as leadQueries.Lead['solar_service']);
+        res.json({
+            success: true,
+            data: leads
+        });
+    } catch (error) {
+        console.error('Error fetching leads by solar service:', error);
         res.status(500).json({
             success: false,
             message: 'Error fetching leads',
