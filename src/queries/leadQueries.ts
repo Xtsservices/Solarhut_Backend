@@ -13,10 +13,12 @@ export interface Lead extends RowDataPacket {
     email?: string;
     service_type: 'Installation' | 'Maintenance';
     solar_service: 'Residential Solar' | 'Commercial Solar' | 'Industrial Solar';
+    status: 'New' | 'Assigned' | 'In Progress' | 'Closed' | 'Rejected';
     capacity: string;
     message: string;
     location: string;
     property_type: ResidentialPropertyType | CommercialPropertyType | IndustrialPropertyType;
+    assigned_to?: number | null;
     channel: string;
     created_at: Date;
     updated_at: Date;
@@ -40,7 +42,20 @@ export const createLead = async (leadData: Omit<Lead, 'id' | 'created_at' | 'upd
             leadData.property_type
         ]
     );
-    return result.insertId;
+
+    // Log insert result for debugging (will show insertId and affectedRows)
+    try {
+        // result may be typed as ResultSetHeader
+        // eslint-disable-next-line no-console
+        console.log('createLead result:', {
+            insertId: (result as any).insertId,
+            affectedRows: (result as any).affectedRows
+        });
+    } catch (e) {
+        // ignore logging errors
+    }
+
+    return (result as any).insertId;
 };
 
 export const getLeadById = async (id: number) => {
@@ -49,6 +64,22 @@ export const getLeadById = async (id: number) => {
         [id]
     );
     return leads[0];
+};
+
+export const updateLeadStatus = async (id: number, status: Lead['status']) => {
+    const [result] = await db.execute(
+        'UPDATE leads SET status = ? WHERE id = ?',
+        [status, id]
+    );
+    return (result as any).affectedRows > 0;
+};
+
+export const assignLeadToEmployee = async (id: number, employeeId: number) => {
+    const [result] = await db.execute(
+        'UPDATE leads SET assigned_to = ?, status = ? WHERE id = ?',
+        [employeeId, 'Assigned', id]
+    );
+    return (result as any).affectedRows > 0;
 };
 
 export const getAllLeads = async () => {

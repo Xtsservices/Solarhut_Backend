@@ -2,6 +2,15 @@ import { Request, Response } from 'express';
 import * as leadQueries from '../queries/leadQueries';
 import { leadSchema } from '../utils/validations';
 import { getPropertyTypesBySolarService, validatePropertyTypeForSolarService } from '../utils/propertyTypes';
+import * as employeeQueries from '../queries/employeeQueries';
+import { notifyAssignment } from '../utils/notification';
+
+// Default mapping from solar_service to suggested roles (admin can override)
+const defaultRoleMapping: Record<string, string[]> = {
+    'Residential Solar': ['Sales Person'],
+    'Commercial Solar': ['Sales Person'],
+    'Industrial Solar': ['Field Executive', 'Installation Technician']
+};
 
 interface LeadRequest {
     first_name: string;
@@ -73,9 +82,10 @@ export const createLead = async (req: Request, res: Response) => {
             location,
             property_type
         });
-        console.log("4")
+        console.log("4 - insert id:", id);
 
         const lead = await leadQueries.getLeadById(id);
+        console.log('fetched lead after insert:', lead);
 
         res.status(201).json({
             success: true,
@@ -289,5 +299,112 @@ export const getLeadStats = async (req: Request, res: Response) => {
             message: 'Error fetching lead statistics',
             error: process.env.NODE_ENV === 'development' ? error : undefined
         });
+    }
+};
+
+// Update lead status
+export const updateLeadStatus = async (req: Request, res: Response) => {
+    try {
+        const leadId = parseInt(req.params.id);
+        const { status } = req.body;
+
+    const validStatuses = ['New', 'Assigned', 'In Progress', 'Closed', 'Rejected'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status. Valid values: ${validStatuses.join(', ')}`
+            });
+        }
+
+        const updated = await leadQueries.updateLeadStatus(leadId, status as any);
+        if (!updated) {
+            return res.status(400).json({ success: false, message: 'Failed to update status or lead not found' });
+        }
+
+        const lead = await leadQueries.getLeadById(leadId);
+        res.json({ success: true, message: 'Status updated', data: lead });
+    } catch (error) {
+        console.error('Error updating lead status:', error);
+        res.status(500).json({ success: false, message: 'Error updating lead status', error: process.env.NODE_ENV === 'development' ? error : undefined });
+    }
+};
+
+// Assign lead to employee (sets assigned_to and status = 'Assigned')
+export const assignLead = async (req: Request, res: Response) => {
+    try {
+        const leadId = parseInt(req.params.id);
+        const { employeeId } = req.body;
+
+        if (!employeeId || typeof employeeId !== 'number') {
+            return res.status(400).json({ success: false, message: 'employeeId is required and must be a number' });
+        }
+
+        // verify employee exists
+        const employee = await employeeQueries.getEmployeeById(employeeId);
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+
+        const updated = await leadQueries.assignLeadToEmployee(leadId, employeeId);
+        if (!updated) {
+            return res.status(400).json({ success: false, message: 'Failed to assign lead or lead not found' });
+        }
+
+        const lead = await leadQueries.getLeadById(leadId);
+                // send notification to employee (sms/email) - best-effort
+                try {
+                    await notifyAssignment(employee.mobile, employee.email, leadId);
+                } catch (e) {
+                    console.error('Notification sending failed:', e);
+                }
+
+                res.json({ success: true, message: 'Lead assigned', data: lead });
+    } catch (error) {
+        console.error('Error assigning lead:', error);
+        res.status(500).json({ success: false, message: 'Error assigning lead', error: process.env.NODE_ENV === 'development' ? error : undefined });
+    }
+};
+
+// Get candidate employees for a lead based on role or lead.solar_service
+export const getLeadCandidates = async (req: Request, res: Response) => {
+    try {
+        const leadId = parseInt(req.params.id);
+        const { roleName } = req.query as { roleName?: string };
+
+        const lead = await leadQueries.getLeadById(leadId);
+        if (!lead) {
+            return res.status(404).json({ success: false, message: 'Lead not found' });
+        }
+
+        let rolesToUse: string[] = [];
+        if (roleName) {
+            rolesToUse = [roleName];
+        } else {
+            rolesToUse = defaultRoleMapping[lead.solar_service] || ['Sales Person'];
+        }
+
+        // Collect employees for each role
+        const candidates: any[] = [];
+        for (const r of rolesToUse) {
+            const emps = await employeeQueries.getEmployeesByRoleName(r);
+            for (const e of emps) {
+                // format employee minimal info and include matched role
+                candidates.push({
+                    id: e.id,
+                    user_id: e.user_id,
+                    first_name: e.first_name,
+                    last_name: e.last_name,
+                    email: e.email,
+                    mobile: e.mobile,
+                    roles: e.roles || [],
+                    matchedRole: r
+                });
+            }
+        }
+
+        res.json({ success: true, data: candidates });
+    } catch (error) {
+        console.error('Error getting lead candidates:', error);
+        res.status(500).json({ success: false, message: 'Error getting lead candidates', error: process.env.NODE_ENV === 'development' ? error : undefined });
     }
 };

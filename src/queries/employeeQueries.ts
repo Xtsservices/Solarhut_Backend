@@ -242,3 +242,16 @@ export const getAllEmployees = async () => {
         return employee;
     });
 };
+
+// Get employees by role name (only active employees)
+export const getEmployeesByRoleName = async (roleName: string) => {
+    const [employees] = await db.execute<Employee[]>(
+        `SELECT e.* FROM employees e
+         JOIN employee_roles er ON e.id = er.employee_id
+         JOIN roles r ON er.role_id = r.role_id
+         WHERE r.role_name = ? AND e.status = 'Active'`,
+        [roleName]
+    );
+
+    return employees;
+};

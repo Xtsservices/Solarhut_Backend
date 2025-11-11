@@ -78,15 +78,19 @@ CREATE TABLE leads (
     email VARCHAR(100),
     service_type ENUM('Installation', 'Maintenance') NOT NULL,
     solar_service ENUM('Residential Solar', 'Commercial Solar', 'Industrial Solar') NOT NULL,
+    status ENUM('New','Assigned','In Progress','Closed','Rejected') NOT NULL DEFAULT 'New',
     capacity VARCHAR(50),
     message TEXT,
     location VARCHAR(255) NOT NULL,
     property_type VARCHAR(100) NOT NULL,
+    assigned_to INT NULL,
     channel VARCHAR(20) DEFAULT 'WEB',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_solar_service (solar_service),
     INDEX idx_property_type (property_type),
+    INDEX idx_status (status),
+    INDEX idx_assigned_to (assigned_to),
     INDEX idx_created_at (created_at)
 )`;
 
