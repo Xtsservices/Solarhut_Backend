@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import { db } from './db';
 import { initializeDatabase } from './schema';
+import { cleanupExpiredOTPs } from './queries/otpQueries';
 import leadRoutes from './routes/leadRoutes';
 import assignLeadsRoutes from './routes/assignLeadsRoutes';
 import authRoutes from './routes/authRoutes';
@@ -36,6 +37,26 @@ const initApp = async () => {
     
     // Initialize database tables
     await initializeDatabase();
+    
+    // Start OTP cleanup scheduler (every 5 minutes)
+    const startOTPCleanup = () => {
+      setInterval(async () => {
+        try {
+          await cleanupExpiredOTPs();
+        } catch (error) {
+          console.error('Error during OTP cleanup:', error);
+        }
+      }, 5 * 60 * 1000); // 5 minutes
+    };
+    
+    // Initial cleanup on startup
+    try {
+      await cleanupExpiredOTPs();
+      startOTPCleanup();
+      console.log('🕒 OTP cleanup scheduler started (runs every 5 minutes)');
+    } catch (error) {
+      console.error('Error starting OTP cleanup:', error);
+    }
     
     // CORS configuration
     app.use(cors({
