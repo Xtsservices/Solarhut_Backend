@@ -4,10 +4,12 @@ import cors from 'cors';
 import { db } from './db';
 import { initializeDatabase } from './schema';
 import leadRoutes from './routes/leadRoutes';
+import assignLeadsRoutes from './routes/assignLeadsRoutes';
 import authRoutes from './routes/authRoutes';
 import contactRoutes from './routes/contactRoutes';
 import employeeRoutes from './routes/employeeRoutes';
 import roleRoutes from './routes/roleRoutes';
+import packageRoutes from './routes/packageRoutes';
 
 dotenv.config();
 
@@ -67,6 +69,8 @@ const initApp = async () => {
 
     // Mount API routes
     app.use('/api/leads', leadRoutes);
+    app.use('/api/assignleads', assignLeadsRoutes);
+    app.use('/api/packages', packageRoutes);
     app.use('/api/auth', authRoutes);
     app.use('/api/contacts', contactRoutes);
     app.use('/api/employees', employeeRoutes);

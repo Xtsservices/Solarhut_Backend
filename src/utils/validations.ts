@@ -333,3 +333,36 @@ export const leadSchema = {
             })
     })
 };
+
+export const packageSchema = {
+    create: Joi.object({
+        name: Joi.string().min(1).max(255).required().messages({
+            'string.empty': 'Package name is required',
+            'any.required': 'Package name is required'
+        }),
+        capacity: Joi.string().min(1).max(50).required().messages({
+            'string.empty': 'Capacity is required',
+            'any.required': 'Capacity is required'
+        }),
+        price: Joi.number().precision(2).positive().required().messages({
+            'number.base': 'Price must be a number',
+            'number.positive': 'Price must be positive',
+            'any.required': 'Price is required'
+        }),
+        original_price: Joi.number().precision(2).positive().optional().allow(null),
+        savings: Joi.number().precision(2).optional().allow(null),
+        monthly_generation: Joi.string().max(255).optional().allow(null, ''),
+        features: Joi.string().max(500).optional().allow(null, ''),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    }),
+    update: Joi.object({
+        name: Joi.string().min(1).max(255).optional(),
+        capacity: Joi.string().min(1).max(50).optional(),
+        price: Joi.number().precision(2).positive().optional(),
+        original_price: Joi.number().precision(2).positive().optional().allow(null),
+        savings: Joi.number().precision(2).optional().allow(null),
+        monthly_generation: Joi.string().max(255).optional().allow(null, ''),
+        features: Joi.string().max(500).optional().allow(null, ''),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    })
+};

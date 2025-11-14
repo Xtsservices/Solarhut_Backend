@@ -10,6 +10,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     }
 
     const payload = verifyToken(token);
+    console.log('Decoded token payload:', payload);
     if (!payload) {
         return res.status(401).json({ success: false, message: 'Invalid or expired token' });
     }
@@ -23,6 +24,7 @@ export const authorizeRoles = (allowedRoles: string[]) => {
     return (req: Request, res: Response, next: NextFunction) => {
         const user = (res.locals as any).user;
         if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' });
+        console.log('User roles:', user);
 
         const hasRole = Array.isArray(user.roles) && user.roles.some((r: string) => allowedRoles.includes(r));
         if (!hasRole) {
