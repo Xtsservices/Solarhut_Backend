@@ -10,7 +10,6 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     }
 
     const payload = verifyToken(token);
-    console.log('Decoded token payload:', payload);
     if (!payload) {
         return res.status(401).json({ success: false, message: 'Invalid or expired token' });
     }

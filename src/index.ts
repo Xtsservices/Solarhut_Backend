@@ -11,6 +11,9 @@ import employeeRoutes from './routes/employeeRoutes';
 import roleRoutes from './routes/roleRoutes';
 import packageRoutes from './routes/packageRoutes';
 import featureRoutes from './routes/featureRoutes';
+import countryRoutes from './routes/countryRoutes';
+import stateRoutes from './routes/stateRoutes';
+import districtRoutes from './routes/districtRoutes';
 
 dotenv.config();
 
@@ -77,6 +80,9 @@ const initApp = async () => {
     app.use('/api/contacts', contactRoutes);
     app.use('/api/employees', employeeRoutes);
     app.use('/api/roles', roleRoutes);
+    app.use('/api/countries', countryRoutes);
+    app.use('/api/states', stateRoutes);
+    app.use('/api/districts', districtRoutes);
 
     // 404 handler
     app.use((req: Request, res: Response) => {

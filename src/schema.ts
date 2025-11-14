@@ -112,6 +112,79 @@ CREATE TABLE IF NOT EXISTS features (
     INDEX idx_created_by (created_by),
     FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE
 )
+`;
+
+const createCountriesTable = `
+CREATE TABLE IF NOT EXISTS countries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    country_code VARCHAR(3) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    alias_name VARCHAR(100),
+    currency_format VARCHAR(10) NOT NULL,
+    created_by INT NOT NULL,
+    updated_by INT,
+    status ENUM('Active','Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_country_code (country_code),
+    INDEX idx_status (status),
+    INDEX idx_created_by (created_by),
+    INDEX idx_updated_by (updated_by),
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
+)
+`;
+
+const createStatesTable = `
+CREATE TABLE IF NOT EXISTS states (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    country_id INT NOT NULL,
+    state_code VARCHAR(5) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    alias_name VARCHAR(100),
+    type ENUM('State', 'UT') NOT NULL DEFAULT 'State',
+    created_by INT NOT NULL,
+    updated_by INT,
+    status ENUM('Active','Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_state_per_country (country_id, state_code),
+    UNIQUE KEY unique_state_name_per_country (country_id, name),
+    INDEX idx_country_id (country_id),
+    INDEX idx_state_code (state_code),
+    INDEX idx_type (type),
+    INDEX idx_status (status),
+    INDEX idx_created_by (created_by),
+    INDEX idx_updated_by (updated_by),
+    FOREIGN KEY (country_id) REFERENCES countries(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
+)
+`;
+
+const createDistrictsTable = `
+CREATE TABLE IF NOT EXISTS districts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    state_id INT NOT NULL,
+    district_code VARCHAR(5) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    alias_name VARCHAR(100),
+    created_by INT NOT NULL,
+    updated_by INT,
+    status ENUM('Active','Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_district_per_state (state_id, district_code),
+    UNIQUE KEY unique_district_name_per_state (state_id, name),
+    INDEX idx_state_id (state_id),
+    INDEX idx_district_code (district_code),
+    INDEX idx_status (status),
+    INDEX idx_created_by (created_by),
+    INDEX idx_updated_by (updated_by),
+    FOREIGN KEY (state_id) REFERENCES states(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
+)
 `;const insertDefaultRoles = async () => {
   const defaultRoles = [
     "Admin",
@@ -138,6 +211,9 @@ export const initializeDatabase = async () => {
     await db.execute(createOTPVerificationTable);
     await db.execute(createPackagesTable);
     await db.execute(createFeaturesTable);
+    await db.execute(createCountriesTable);
+    await db.execute(createStatesTable);
+    await db.execute(createDistrictsTable);
 
     // Insert default roles if they don't exist
     await insertDefaultRoles();
