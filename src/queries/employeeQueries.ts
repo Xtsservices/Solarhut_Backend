@@ -62,24 +62,39 @@ export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'user_i
 };
 
 // Get role IDs by names
-export const getRolesByNames = async (roleNames: string[]) => {
-    const placeholders = roleNames.map(() => '?').join(',');
-    const [roles] = await db.execute<Role[]>(
-        `SELECT role_id, role_name FROM roles WHERE role_name IN (${placeholders})`,
-        roleNames
-    );
+// Fetch roles by either role names or role IDs. Accepts an array of strings (names) or numbers (ids).
+export const getRolesByIdentifiers = async (identifiers: Array<string | number>) => {
+    if (!identifiers || identifiers.length === 0) return [] as Role[];
+
+    const allNumbers = identifiers.every(i => typeof i === 'number');
+    const placeholders = identifiers.map(() => '?').join(',');
+    const sql = allNumbers
+        ? `SELECT role_id, role_name FROM roles WHERE role_id IN (${placeholders})`
+        : `SELECT role_id, role_name FROM roles WHERE role_name IN (${placeholders})`;
+
+    const [roles] = await db.execute<Role[]>(sql, identifiers as any[]);
     return roles;
 };
 
+// Backwards-compatible helper: get roles by names only
+export const getRolesByNames = async (roleNames: string[]) => {
+    return getRolesByIdentifiers(roleNames) as Promise<Role[]>;
+};
+
 // Assign roles to an employee
-export const assignRolesToEmployee = async (employeeId: number, roleNames: string[]) => {
-    // Get role IDs first
-    const roles = await getRolesByNames(roleNames);
-    
-    if (roles.length !== roleNames.length) {
+// Assign roles to an employee. `identifiers` can be role names (string[]) or role IDs (number[]).
+export const assignRolesToEmployee = async (employeeId: number, identifiers: Array<string | number>) => {
+    // Resolve to role rows (supports both names and ids)
+    const roles = await getRolesByIdentifiers(identifiers);
+
+    if (roles.length !== identifiers.length) {
         const foundRoles = roles.map(r => r.role_name);
-        const missingRoles = roleNames.filter(name => !foundRoles.includes(name));
-        throw new Error(`Some roles do not exist: ${missingRoles.join(', ')}`);
+        // Determine missing identifiers for error message
+        const missing = identifiers.filter(id => {
+            if (typeof id === 'number') return !roles.some(r => r.role_id === id);
+            return !foundRoles.includes(String(id));
+        });
+        throw new Error(`Some roles do not exist: ${missing.join(', ')}`);
     }
 
     const values = roles.map(role => `(${employeeId}, ${role.role_id}, NOW())`).join(',');
@@ -142,8 +157,44 @@ export const getEmployeeByEmail = async (email: string) => {
 
 // Get employee by mobile
 export const getEmployeeByMobile = async (mobile: string) => {
-    const [employees] = await db.execute<Employee[]>('SELECT * FROM employees WHERE mobile = ?', [mobile]);
-    return employees[0];
+    const [employees] = await db.execute<Employee[]>(
+        `SELECT e.*, 
+            GROUP_CONCAT(r.role_name) as role_names,
+            GROUP_CONCAT(er.role_id) as role_ids,
+            GROUP_CONCAT(er.assigned_at) as role_assigned_dates,
+            GROUP_CONCAT(er.status) as role_statuses
+         FROM employees e
+         LEFT JOIN employee_roles er ON e.id = er.employee_id
+         LEFT JOIN roles r ON er.role_id = r.role_id
+         WHERE e.mobile = ?
+         GROUP BY e.id`,
+        [mobile]
+    );
+
+    if (!employees[0]) return null;
+
+    const employee = employees[0];
+    if (employee.role_names) {
+        const roleNames = employee.role_names.split(',');
+        const roleIds = employee.role_ids.split(',').map(Number);
+        const roleDates = employee.role_assigned_dates.split(',').map((d: string) => new Date(d));
+        const roleStatuses = employee.role_statuses.split(',');
+
+        employee.roles = roleNames.map((name: string, index: number) => ({
+            id: roleIds[index],
+            role_name: name,
+            assigned_date: roleDates[index],
+            status: roleStatuses[index]
+        }));
+    }
+
+    // Remove concatenated helper fields
+    delete (employee as any).role_names;
+    delete (employee as any).role_ids;
+    delete (employee as any).role_assigned_dates;
+    delete (employee as any).role_statuses;
+
+    return employee;
 };
 
 // Get employee by user_id
@@ -241,4 +292,17 @@ export const getAllEmployees = async () => {
 
         return employee;
     });
+};
+
+// Get employees by role name (only active employees)
+export const getEmployeesByRoleName = async (roleName: string) => {
+    const [employees] = await db.execute<Employee[]>(
+        `SELECT e.* FROM employees e
+         JOIN employee_roles er ON e.id = er.employee_id
+         JOIN roles r ON er.role_id = r.role_id
+         WHERE r.role_name = ? AND e.status = 'Active'`,
+        [roleName]
+    );
+
+    return employees;
 };

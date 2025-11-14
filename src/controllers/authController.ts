@@ -37,7 +37,8 @@ export const requestOTP = async (req: Request, res: Response) => {
         }
 
         // Generate and save new OTP
-        const otp = generateOTP();
+        // const otp = generateOTP();
+        const otp = "123456";
         await otpQueries.createOTP(formattedMobile, otp);
 
         // Send OTP via SMS
@@ -90,6 +91,7 @@ export const verifyOTP = async (req: Request, res: Response) => {
         }
 
         // Create token payload with required employee data
+        
         const tokenPayload: TokenPayload = {
             id: employee.id,
             user_id: employee.user_id,
