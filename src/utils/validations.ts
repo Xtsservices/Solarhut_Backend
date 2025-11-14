@@ -366,3 +366,17 @@ export const packageSchema = {
         status: Joi.string().valid('Active', 'Inactive').optional()
     })
 };
+
+export const featureSchema = {
+    create: Joi.object({
+        feature_name: Joi.string().min(1).max(255).required().messages({
+            'string.empty': 'Feature name is required',
+            'any.required': 'Feature name is required'
+        }),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    }),
+    update: Joi.object({
+        feature_name: Joi.string().min(1).max(255).optional(),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    })
+};

@@ -85,22 +85,34 @@ CREATE TABLE IF NOT EXISTS otp_verifications (
 
 const createPackagesTable = `
 CREATE TABLE IF NOT EXISTS packages (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  capacity VARCHAR(50) NOT NULL,
-  price DECIMAL(12,2) NOT NULL,
-  original_price DECIMAL(12,2) DEFAULT NULL,
-  savings DECIMAL(12,2) DEFAULT NULL,
-  monthly_generation VARCHAR(255) DEFAULT NULL,
-  features TEXT,
-  status ENUM('Active','Inactive') DEFAULT 'Active',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_status (status)
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    capacity VARCHAR(50) NOT NULL,
+    price DECIMAL(12,2) NOT NULL,
+    original_price DECIMAL(12,2) DEFAULT NULL,
+    savings DECIMAL(12,2) DEFAULT NULL,
+    monthly_generation VARCHAR(255) DEFAULT NULL,
+    features TEXT,
+    status ENUM('Active','Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_status (status)
 )
 `;
 
-const insertDefaultRoles = async () => {
+const createFeaturesTable = `
+CREATE TABLE IF NOT EXISTS features (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    feature_name VARCHAR(255) NOT NULL UNIQUE,
+    created_by INT NOT NULL,
+    status ENUM('Active','Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_status (status),
+    INDEX idx_created_by (created_by),
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE
+)
+`;const insertDefaultRoles = async () => {
   const defaultRoles = [
     "Admin",
     "Sales Person",
@@ -124,7 +136,8 @@ export const initializeDatabase = async () => {
     await db.execute(createContactsTable);
     await db.execute(createLeadsTable);
     await db.execute(createOTPVerificationTable);
-  await db.execute(createPackagesTable);
+    await db.execute(createPackagesTable);
+    await db.execute(createFeaturesTable);
 
     // Insert default roles if they don't exist
     await insertDefaultRoles();

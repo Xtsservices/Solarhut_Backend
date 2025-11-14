@@ -10,6 +10,7 @@ import contactRoutes from './routes/contactRoutes';
 import employeeRoutes from './routes/employeeRoutes';
 import roleRoutes from './routes/roleRoutes';
 import packageRoutes from './routes/packageRoutes';
+import featureRoutes from './routes/featureRoutes';
 
 dotenv.config();
 
@@ -71,6 +72,7 @@ const initApp = async () => {
     app.use('/api/leads', leadRoutes);
     app.use('/api/assignleads', assignLeadsRoutes);
     app.use('/api/packages', packageRoutes);
+    app.use('/api/features', featureRoutes);
     app.use('/api/auth', authRoutes);
     app.use('/api/contacts', contactRoutes);
     app.use('/api/employees', employeeRoutes);
