@@ -380,3 +380,317 @@ export const featureSchema = {
         status: Joi.string().valid('Active', 'Inactive').optional()
     })
 };
+
+export const permissionSchema = {
+    create: Joi.object({
+        role_id: Joi.number().integer().positive().required().messages({
+            'number.base': 'Role ID must be a number',
+            'number.positive': 'Role ID must be positive',
+            'any.required': 'Role ID is required'
+        }),
+        feature_id: Joi.number().integer().positive().required().messages({
+            'number.base': 'Feature ID must be a number',
+            'number.positive': 'Feature ID must be positive',
+            'any.required': 'Feature ID is required'
+        }),
+        permissions: Joi.array().items(
+            Joi.string().valid('create', 'read', 'edit', 'delete')
+        ).min(1).required().messages({
+            'array.min': 'At least one permission is required',
+            'any.required': 'Permissions array is required'
+        }),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    }),
+    update: Joi.object({
+        status: Joi.string().valid('Active', 'Inactive').optional(),
+        updated_by: Joi.number().integer().positive().optional()
+    }),
+    bulkCreate: Joi.object({
+        permissions: Joi.array().items(
+            Joi.object({
+                role_id: Joi.number().integer().positive().required(),
+                feature_id: Joi.number().integer().positive().required(),
+                permissions: Joi.array().items(
+                    Joi.string().valid('create', 'read', 'edit', 'delete')
+                ).min(1).required()
+            })
+        ).min(1).required().messages({
+            'array.min': 'At least one permission set is required'
+        })
+    })
+};
+
+export const countrySchema = {
+    create: Joi.object({
+        country_code: Joi.string()
+            .length(2)
+            .uppercase()
+            .required()
+            .pattern(/^[A-Z]{2}$/)
+            .messages({
+                'string.empty': 'Country code is required',
+                'string.length': 'Country code must be exactly 2 characters long',
+                'string.pattern.base': 'Country code must contain only uppercase letters',
+                'any.required': 'Country code is required'
+            }),
+        name: Joi.string()
+            .min(2)
+            .max(100)
+            .required()
+            .trim()
+            .messages({
+                'string.empty': 'Country name is required',
+                'string.min': 'Country name must be at least 2 characters long',
+                'string.max': 'Country name cannot exceed 100 characters',
+                'any.required': 'Country name is required'
+            }),
+        alias_name: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, '')
+            .trim()
+            .messages({
+                'string.max': 'Alias name cannot exceed 100 characters'
+            }),
+        currency_format: Joi.string()
+            .min(1)
+            .max(10)
+            .required()
+            .uppercase()
+            .messages({
+                'string.empty': 'Currency format is required',
+                'string.min': 'Currency format must be at least 1 character long',
+                'string.max': 'Currency format cannot exceed 10 characters',
+                'any.required': 'Currency format is required'
+            }),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    }),
+    update: Joi.object({
+        country_code: Joi.string()
+            .length(3)
+            .uppercase()
+            .optional()
+            .pattern(/^[A-Z]{3}$/)
+            .messages({
+                'string.length': 'Country code must be exactly 3 characters long',
+                'string.pattern.base': 'Country code must contain only uppercase letters'
+            }),
+        name: Joi.string()
+            .min(2)
+            .max(100)
+            .optional()
+            .trim()
+            .messages({
+                'string.min': 'Country name must be at least 2 characters long',
+                'string.max': 'Country name cannot exceed 100 characters'
+            }),
+        alias_name: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, '')
+            .trim()
+            .messages({
+                'string.max': 'Alias name cannot exceed 100 characters'
+            }),
+        currency_format: Joi.string()
+            .min(1)
+            .max(10)
+            .optional()
+            .uppercase()
+            .messages({
+                'string.min': 'Currency format must be at least 1 character long',
+                'string.max': 'Currency format cannot exceed 10 characters'
+            }),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    })
+};
+
+export const stateSchema = {
+    create: Joi.object({
+        country_id: Joi.number()
+            .integer()
+            .positive()
+            .required()
+            .messages({
+                'number.base': 'Country ID must be a number',
+                'number.integer': 'Country ID must be an integer',
+                'number.positive': 'Country ID must be a positive number',
+                'any.required': 'Country ID is required'
+            }),
+        state_code: Joi.string()
+            .min(1)
+            .max(5)
+            .uppercase()
+            .required()
+            .pattern(/^[A-Z0-9]+$/)
+            .messages({
+                'string.empty': 'State code is required',
+                'string.min': 'State code must be at least 1 character long',
+                'string.max': 'State code cannot exceed 5 characters',
+                'string.pattern.base': 'State code must contain only uppercase letters and numbers',
+                'any.required': 'State code is required'
+            }),
+        name: Joi.string()
+            .min(2)
+            .max(100)
+            .required()
+            .trim()
+            .messages({
+                'string.empty': 'State name is required',
+                'string.min': 'State name must be at least 2 characters long',
+                'string.max': 'State name cannot exceed 100 characters',
+                'any.required': 'State name is required'
+            }),
+        alias_name: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, '')
+            .trim()
+            .messages({
+                'string.max': 'Alias name cannot exceed 100 characters'
+            }),
+        type: Joi.string()
+            .valid('State', 'UT')
+            .required()
+            .messages({
+                'string.empty': 'Type is required',
+                'any.only': 'Type must be either "State" or "UT"',
+                'any.required': 'Type is required'
+            }),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    }),
+    update: Joi.object({
+        country_id: Joi.number()
+            .integer()
+            .positive()
+            .optional()
+            .messages({
+                'number.base': 'Country ID must be a number',
+                'number.integer': 'Country ID must be an integer',
+                'number.positive': 'Country ID must be a positive number'
+            }),
+        state_code: Joi.string()
+            .min(1)
+            .max(5)
+            .uppercase()
+            .optional()
+            .pattern(/^[A-Z0-9]+$/)
+            .messages({
+                'string.min': 'State code must be at least 1 character long',
+                'string.max': 'State code cannot exceed 5 characters',
+                'string.pattern.base': 'State code must contain only uppercase letters and numbers'
+            }),
+        name: Joi.string()
+            .min(2)
+            .max(100)
+            .optional()
+            .trim()
+            .messages({
+                'string.min': 'State name must be at least 2 characters long',
+                'string.max': 'State name cannot exceed 100 characters'
+            }),
+        alias_name: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, '')
+            .trim()
+            .messages({
+                'string.max': 'Alias name cannot exceed 100 characters'
+            }),
+        type: Joi.string()
+            .valid('State', 'UT')
+            .optional()
+            .messages({
+                'any.only': 'Type must be either "State" or "UT"'
+            }),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    })
+};
+
+export const districtSchema = {
+    create: Joi.object({
+        state_id: Joi.number()
+            .integer()
+            .positive()
+            .required()
+            .messages({
+                'number.base': 'State ID must be a number',
+                'number.integer': 'State ID must be an integer',
+                'number.positive': 'State ID must be a positive number',
+                'any.required': 'State ID is required'
+            }),
+        district_code: Joi.string()
+            .min(1)
+            .max(5)
+            .uppercase()
+            .required()
+            .pattern(/^[A-Z0-9]+$/)
+            .messages({
+                'string.empty': 'District code is required',
+                'string.min': 'District code must be at least 1 character long',
+                'string.max': 'District code cannot exceed 5 characters',
+                'string.pattern.base': 'District code must contain only uppercase letters and numbers',
+                'any.required': 'District code is required'
+            }),
+        name: Joi.string()
+            .min(2)
+            .max(100)
+            .required()
+            .trim()
+            .messages({
+                'string.empty': 'District name is required',
+                'string.min': 'District name must be at least 2 characters long',
+                'string.max': 'District name cannot exceed 100 characters',
+                'any.required': 'District name is required'
+            }),
+        alias_name: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, '')
+            .trim()
+            .messages({
+                'string.max': 'Alias name cannot exceed 100 characters'
+            }),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    }),
+    update: Joi.object({
+        state_id: Joi.number()
+            .integer()
+            .positive()
+            .optional()
+            .messages({
+                'number.base': 'State ID must be a number',
+                'number.integer': 'State ID must be an integer',
+                'number.positive': 'State ID must be a positive number'
+            }),
+        district_code: Joi.string()
+            .min(1)
+            .max(5)
+            .uppercase()
+            .optional()
+            .pattern(/^[A-Z0-9]+$/)
+            .messages({
+                'string.min': 'District code must be at least 1 character long',
+                'string.max': 'District code cannot exceed 5 characters',
+                'string.pattern.base': 'District code must contain only uppercase letters and numbers'
+            }),
+        name: Joi.string()
+            .min(2)
+            .max(100)
+            .optional()
+            .trim()
+            .messages({
+                'string.min': 'District name must be at least 2 characters long',
+                'string.max': 'District name cannot exceed 100 characters'
+            }),
+        alias_name: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, '')
+            .trim()
+            .messages({
+                'string.max': 'Alias name cannot exceed 100 characters'
+            }),
+        status: Joi.string().valid('Active', 'Inactive').optional()
+    })
+};
