@@ -15,7 +15,7 @@ export const createRole = async (roleName: Role['role_name']) => {
 };
 
 export const getAllRoles = async () => {
-    const [roles] = await db.execute<Role[]>('SELECT role_name FROM roles ORDER BY role_name ASC');
+    const [roles] = await db.execute<Role[]>('SELECT role_id, role_name FROM roles ORDER BY role_name ASC');
     return roles;
 };
 

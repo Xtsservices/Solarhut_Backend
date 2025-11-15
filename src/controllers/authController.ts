@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as employeeQueries from '../queries/employeeQueries';
 import * as otpQueries from '../queries/otpQueries';
+import * as permissionQueries from '../queries/permissionQueries';
 import { generateToken } from '../utils/authUtils';
 import { generateOTP, sendSMS, formatMobile } from '../utils/otpUtils';
 import { TokenPayload } from '../interfaces/auth';
@@ -90,8 +91,10 @@ export const verifyOTP = async (req: Request, res: Response) => {
             });
         }
 
+        // Get employee permissions based on their roles
+        const permissions = await permissionQueries.getEmployeePermissions(employee.id);
+
         // Create token payload with required employee data
-        
         const tokenPayload: TokenPayload = {
             id: employee.id,
             user_id: employee.user_id,
@@ -118,7 +121,8 @@ export const verifyOTP = async (req: Request, res: Response) => {
                     email: employee.email,
                     mobile: employee.mobile,
                     status: employee.status,
-                    roles: employee.roles
+                    roles: employee.roles || [],
+                    permissions: permissions
                 }
             }
         });
@@ -127,6 +131,71 @@ export const verifyOTP = async (req: Request, res: Response) => {
         res.status(500).json({
             success: false,
             message: 'Error verifying OTP',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+};
+
+export const myProfile = async (req: Request, res: Response) => {
+    try {
+        const user = (res.locals as any).user; // Extract user from JWT token (set by auth middleware)
+
+        if (!user || !user.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'User information not found in token'
+            });
+        }
+
+        // Get fresh employee details from database
+        const employee = await employeeQueries.getEmployeeById(user.id);
+        
+        if (!employee) {
+            return res.status(404).json({
+                success: false,
+                message: 'Employee not found or account may have been deleted'
+            });
+        }
+
+        // Check if employee is still active
+        if (employee.status !== 'Active') {
+            return res.status(403).json({
+                success: false,
+                message: 'Account is inactive. Please contact administrator.'
+            });
+        }
+
+        // Get employee permissions based on their roles
+        const permissions = await permissionQueries.getEmployeePermissions(employee.id);
+
+        // Return the same format as login response
+        res.json({
+            success: true,
+            message: 'Profile retrieved successfully',
+            data: {
+                employee: {
+                    id: employee.id,
+                    user_id: employee.user_id,
+                    first_name: employee.first_name,
+                    last_name: employee.last_name,
+                    email: employee.email,
+                    mobile: employee.mobile,
+                    address: employee.address,
+                    joining_date: employee.joining_date,
+                    status: employee.status,
+                    created_at: employee.created_at,
+                    updated_at: employee.updated_at,
+                    roles: employee.roles || [],
+                    permissions: permissions
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error in myProfile:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving profile',
             error: process.env.NODE_ENV === 'development' ? error : undefined
         });
     }

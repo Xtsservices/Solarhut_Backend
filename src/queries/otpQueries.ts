@@ -86,3 +86,17 @@ export const getActiveOTP = async (mobile: string): Promise<OTPVerification | nu
 
     return verifications[0] || null;
 };
+
+// Clean up expired OTP records
+export const cleanupExpiredOTPs = async (): Promise<number> => {
+    const [result] = await db.execute<ResultSetHeader>(
+        'DELETE FROM otp_verifications WHERE expires_at < NOW()'
+    );
+    
+    const deletedCount = result.affectedRows;
+    if (deletedCount > 0) {
+        console.log(`🧹 Cleaned up ${deletedCount} expired OTP records`);
+    }
+    
+    return deletedCount;
+};

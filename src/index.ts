@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import { db } from './db';
 import { initializeDatabase } from './schema';
+import { cleanupExpiredOTPs } from './queries/otpQueries';
 import leadRoutes from './routes/leadRoutes';
 import assignLeadsRoutes from './routes/assignLeadsRoutes';
 import authRoutes from './routes/authRoutes';
@@ -11,10 +12,10 @@ import employeeRoutes from './routes/employeeRoutes';
 import roleRoutes from './routes/roleRoutes';
 import packageRoutes from './routes/packageRoutes';
 import featureRoutes from './routes/featureRoutes';
+import permissionRoutes from './routes/permissionRoutes';
 import countryRoutes from './routes/countryRoutes';
 import stateRoutes from './routes/stateRoutes';
 import districtRoutes from './routes/districtRoutes';
-import jobRoutes from './routes/jobRoutes';
 
 dotenv.config();
 
@@ -40,6 +41,26 @@ const initApp = async () => {
     
     // Initialize database tables
     await initializeDatabase();
+    
+    // Start OTP cleanup scheduler (every 5 minutes)
+    const startOTPCleanup = () => {
+      setInterval(async () => {
+        try {
+          await cleanupExpiredOTPs();
+        } catch (error) {
+          console.error('Error during OTP cleanup:', error);
+        }
+      }, 5 * 60 * 1000); // 5 minutes
+    };
+    
+    // Initial cleanup on startup
+    try {
+      await cleanupExpiredOTPs();
+      startOTPCleanup();
+      console.log('🕒 OTP cleanup scheduler started (runs every 5 minutes)');
+    } catch (error) {
+      console.error('Error starting OTP cleanup:', error);
+    }
     
     // CORS configuration
     app.use(cors({
@@ -77,6 +98,7 @@ const initApp = async () => {
     app.use('/api/assignleads', assignLeadsRoutes);
     app.use('/api/packages', packageRoutes);
     app.use('/api/features', featureRoutes);
+    app.use('/api/permissions', permissionRoutes);
     app.use('/api/auth', authRoutes);
     app.use('/api/contacts', contactRoutes);
     app.use('/api/employees', employeeRoutes);
@@ -84,7 +106,6 @@ const initApp = async () => {
     app.use('/api/countries', countryRoutes);
     app.use('/api/states', stateRoutes);
     app.use('/api/districts', districtRoutes);
-    app.use('/api/jobs', jobRoutes);
 
     // 404 handler
     app.use((req: Request, res: Response) => {
