@@ -228,3 +228,22 @@ export const hasPermission = async (roleId: number, featureId: number, permissio
     );
     return rows[0].count > 0;
 };
+
+// Get all permissions for an employee based on their roles
+export const getEmployeePermissions = async (employeeId: number) => {
+    const [rows] = await db.execute<Permission[]>(
+        `SELECT DISTINCT p.*, 
+                r.role_name,
+                f.feature_name
+         FROM permissions p
+         INNER JOIN roles r ON p.role_id = r.role_id
+         INNER JOIN features f ON p.feature_id = f.id
+         INNER JOIN employee_roles er ON p.role_id = er.role_id
+         WHERE er.employee_id = ? 
+           AND p.status = 'Active' 
+           AND er.status = 'Active'
+         ORDER BY f.feature_name, p.permission`,
+        [employeeId]
+    );
+    return rows;
+};

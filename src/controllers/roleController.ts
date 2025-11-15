@@ -43,11 +43,10 @@ export const createRole = async (req: Request, res: Response) => {
 export const getAllRoles = async (req: Request, res: Response) => {
     try {
         const roles = await roleQueries.getAllRoles();
-        const roleNames = roles.map(role => role.role_name);
         
         res.json({
             success: true,
-            data: roleNames
+            data: roles
         });
     } catch (error) {
         console.error('Error fetching roles:', error);
