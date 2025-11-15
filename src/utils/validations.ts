@@ -402,8 +402,15 @@ export const permissionSchema = {
         status: Joi.string().valid('Active', 'Inactive').optional()
     }),
     update: Joi.object({
+        permissions: Joi.array().items(
+            Joi.string().valid('create', 'read', 'edit', 'delete')
+        ).min(1).optional().messages({
+            'array.min': 'At least one permission is required if permissions are provided'
+        }),
         status: Joi.string().valid('Active', 'Inactive').optional(),
         updated_by: Joi.number().integer().positive().optional()
+    }).min(1).messages({
+        'object.min': 'At least one field (permissions or status) must be provided'
     }),
     bulkCreate: Joi.object({
         permissions: Joi.array().items(

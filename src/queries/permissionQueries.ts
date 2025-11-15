@@ -231,10 +231,8 @@ export const hasPermission = async (roleId: number, featureId: number, permissio
 
 // Get all permissions for an employee based on their roles
 export const getEmployeePermissions = async (employeeId: number) => {
-    const [rows] = await db.execute<Permission[]>(
-        `SELECT DISTINCT p.*, 
-                r.role_name,
-                f.feature_name
+    const [rows] = await db.execute<RowDataPacket[]>(
+        `SELECT DISTINCT f.feature_name
          FROM permissions p
          INNER JOIN roles r ON p.role_id = r.role_id
          INNER JOIN features f ON p.feature_id = f.id
@@ -242,8 +240,8 @@ export const getEmployeePermissions = async (employeeId: number) => {
          WHERE er.employee_id = ? 
            AND p.status = 'Active' 
            AND er.status = 'Active'
-         ORDER BY f.feature_name, p.permission`,
+         ORDER BY f.feature_name`,
         [employeeId]
     );
-    return rows;
+     return rows.map(row => row.feature_name);
 };
