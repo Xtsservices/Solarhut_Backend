@@ -17,10 +17,12 @@ router.post('/create', authenticate, jobController.createJob);
 router.get('/allJobs', jobController.listJobs);
 
 // Get all jobs with comprehensive details (customer, location, payments, status history, assignments)
-router.get('/allJobsDetailed', jobController.listJobsWithDetails);
+
+// Get job counts and statistics
+router.get('/counts', jobController.getJobsCounts);
 
 // Get a specific job by ID with all related data
-router.get('/:id', jobController.getJob);
+router.get('/getjob/:id', jobController.getJob);
 
 // Update a job
 router.put('/:id', validateRequest(jobSchema.update), jobController.updateJob);
@@ -33,7 +35,7 @@ router.get('/employee/:employeeId', jobController.getJobsByEmployee);
 
 // Job Status Operations
 // Update job status with tracking
-router.patch('/:id/status', validateRequest(jobStatusTrackingSchema.create), jobController.updateJobStatus);
+router.put('/:id/status', validateRequest(jobStatusTrackingSchema.update), jobController.updateJobStatus);
 
 // Job Location Operations
 // Add location details to a job
