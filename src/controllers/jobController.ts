@@ -201,11 +201,99 @@ export const getJob = async (req: Request, res: Response) => {
 
 export const listJobs = async (req: Request, res: Response) => {
     try {
-        const onlyActive = req.query.active !== 'false';
-        const jobs = await jobQueries.getJobsWithDetails(onlyActive);
+        // Pagination parameters
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const offset = (page - 1) * limit;
+        
+        // Filter parameter
+        const onlyActive = req.query.active === 'true';
+        
+        // Get total count for pagination metadata
+        const connection = await db.getConnection();
+        let jobsWithAssignments: any[] = [];
+        let totalJobs = 0;
+        
+        try {
+            // Count total jobs based on filter
+            let countQuery = 'SELECT COUNT(*) as total FROM jobs';
+            if (onlyActive) {
+                countQuery += ` WHERE status NOT IN ('Cancelled', 'Completed')`;
+            }
+            
+            const [countResult] = await connection.execute(countQuery) as any;
+            totalJobs = countResult[0].total;
+            
+            // Get paginated jobs with details
+            let jobsQuery = `
+                SELECT j.*, 
+                       p.name as package_name, p.capacity as package_capacity, p.price as package_price,
+                       p.original_price as package_original_price, p.savings as package_savings,
+                       c.customer_code, c.full_name as customer_name, c.mobile as customer_mobile,
+                       c.email as customer_email, c.customer_type, c.company_name,
+                       cl.location_type, cl.address_line_1, cl.address_line_2, cl.city, 
+                       cl.pincode, cl.landmark, cl.latitude, cl.longitude,
+                       d.name as district_name, s.name as state_name, co.name as country_name,
+                       l.first_name as lead_first_name, l.last_name as lead_last_name,
+                       cb.first_name as created_by_name, ub.first_name as updated_by_name,
+                       -- Latest status tracking
+                       (SELECT jst.new_status FROM job_status_tracking jst 
+                        WHERE jst.job_id = j.id 
+                        ORDER BY jst.status_date DESC LIMIT 1) as latest_status,
+                       (SELECT jst.status_date FROM job_status_tracking jst 
+                        WHERE jst.job_id = j.id 
+                        ORDER BY jst.status_date DESC LIMIT 1) as latest_status_date,
+                       (SELECT jst.comments FROM job_status_tracking jst 
+                        WHERE jst.job_id = j.id 
+                        ORDER BY jst.status_date DESC LIMIT 1) as latest_status_comments,
+                       -- Payment summary
+                       (SELECT COUNT(*) FROM job_payments jp 
+                        WHERE jp.job_id = j.id) as total_payments,
+                       (SELECT COALESCE(SUM(jp.amount), 0) FROM job_payments jp 
+                        WHERE jp.job_id = j.id AND jp.payment_status = 'Completed') as total_paid_amount,
+                       (SELECT COALESCE(SUM(jp.amount), 0) FROM job_payments jp 
+                        WHERE jp.job_id = j.id AND jp.payment_status = 'Pending') as pending_payment_amount,
+                       -- Assignment summary
+                       (SELECT COUNT(*) FROM job_assignments ja 
+                        WHERE ja.job_id = j.id AND ja.assignment_status = 'Active') as active_assignments
+                FROM jobs j
+                LEFT JOIN packages p ON j.package_id = p.id
+                LEFT JOIN customers c ON j.customer_id = c.id
+                LEFT JOIN customer_locations cl ON j.location_id = cl.id
+                LEFT JOIN districts d ON cl.district_id = d.id
+                LEFT JOIN states s ON cl.state_id = s.id
+                LEFT JOIN countries co ON cl.country_id = co.id
+                LEFT JOIN leads l ON j.lead_id = l.id
+                LEFT JOIN employees cb ON j.created_by = cb.id
+                LEFT JOIN employees ub ON j.updated_by = ub.id
+            `;
+            
+            if (onlyActive) {
+                jobsQuery += ` WHERE j.status NOT IN ('Cancelled', 'Completed')`;
+            }
+            
+            jobsQuery += ` ORDER BY j.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+            
+            const [jobsResult] = await connection.execute(jobsQuery) as any;
+            
+            // Get assigned employees for each job
+            jobsWithAssignments = await Promise.all(jobsResult.map(async (job: any) => {
+                const assignments = await jobQueries.getJobAssignmentsByJobId(job.id, connection);
+                // Sort by created_at descending and get only the latest assignment (most recent one)
+                const sortedAssignments = assignments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                const latestAssignment = sortedAssignments.length > 0 ? sortedAssignments[0] : null;
+                return {
+                    ...job,
+                    assigned_employees_details: latestAssignment
+                };
+            }));
+            
+        } finally {
+            connection.release();
+        }
         
         // Structure each job into organized objects
-        const structuredJobs = jobs.map(job => ({
+        const structuredJobs = jobsWithAssignments.map((job: any) => ({
             job_info: {
                 id: job.id,
                 job_code: job.job_code,
@@ -268,9 +356,10 @@ export const listJobs = async (req: Request, res: Response) => {
                 total_status_changes: job.total_status_changes || 0
             },
             assignment_info: {
-                assigned_employees: job.assigned_employees || 0,
+                assigned_employees: job.assigned_employees_details ? 1 : 0,
                 lead_technician: job.lead_technician_name || null,
-                assignment_status: job.assignment_status || 'Not Assigned'
+                assignment_status: job.assignment_status || 'Not Assigned',
+                employees_details: job.assigned_employees_details || null
             },
             creator_info: {
                 created_by: job.created_by,
@@ -280,9 +369,27 @@ export const listJobs = async (req: Request, res: Response) => {
             }
         }));
         
+        // Calculate pagination metadata
+        const totalPages = Math.ceil(totalJobs / limit);
+        const hasNext = page < totalPages;
+        const hasPrev = page > 1;
+        
         res.json({ 
             success: true, 
-            data: structuredJobs
+            data: structuredJobs,
+            pagination: {
+                current_page: page,
+                per_page: limit,
+                total_items: totalJobs,
+                total_pages: totalPages,
+                has_next: hasNext,
+                has_previous: hasPrev,
+                next_page: hasNext ? page + 1 : null,
+                previous_page: hasPrev ? page - 1 : null
+            },
+            filters: {
+                active_only: onlyActive
+            }
         });
     } catch (err) {
         console.error('Error listing jobs:', err);
@@ -294,22 +401,16 @@ export const listJobs = async (req: Request, res: Response) => {
     }
 };
 
-export const listJobsWithDetails = async (req: Request, res: Response) => {
+export const getJobsCount = async (req: Request, res: Response) => {
     try {
-        const onlyActive = req.query.active !== 'false';
-        const jobs = await jobQueries.getJobsWithDetails(onlyActive);
-        
-        res.json({ 
-            success: true, 
-            data: jobs,
-            filter: onlyActive ? 'active_only' : 'all_jobs',
-            message: 'Jobs with comprehensive details retrieved successfully'
-        });
+        // This function appears to be unused since getJobsCounts is the main implementation
+        // Redirecting to getJobsCounts for consistency
+        await getJobsCounts(req, res);
     } catch (err) {
-        console.error('Error listing jobs with details:', err);
+        console.error('Error getting job counts:', err);
         res.status(500).json({ 
             success: false, 
-            message: 'Error listing jobs with details', 
+            message: 'Error getting job counts', 
             error: process.env.NODE_ENV === 'development' ? err : undefined 
         });
     }
@@ -510,19 +611,43 @@ export const createJobAssignment = async (req: Request, res: Response) => {
                 throw new Error('Job not found');
             }
 
+            // Check if employee exists and is active
+            const [employeeRows] = await connection.execute(
+                `SELECT id, status, first_name, last_name FROM employees WHERE id = ?`,
+                [value.employee_id]
+            ) as any;
+            
+            if (employeeRows.length === 0) {
+                throw new Error('Employee not found');
+            }
+            
+            const employee = employeeRows[0];
+            if (employee.status !== 'Active') {
+                throw new Error(`Cannot assign employee "${employee.first_name} ${employee.last_name}" with status "${employee.status}". Employee must be Active to be assigned to jobs.`);
+            }
+
+            // Check if job status is "Created" - only allow assignments for new jobs
+            if (existingJob.status !== 'Created') {
+                throw new Error(`Cannot assign employees to job with status "${existingJob.status}". Job must have "Created" status to add assignments.`);
+            }
+
+            // Check if there are existing assignments for this job
+            const existingAssignments = await jobQueries.getJobAssignmentsByJobId(value.job_id, connection);
+            if (existingAssignments && existingAssignments.length > 0) {
+                throw new Error('Job already has existing assignments. Cannot add more assignments to a job that already has assigned employees.');
+            }
+
             const assignmentId = await jobQueries.createJobAssignment(value, user.id, connection);
             
-            // Update job status to Assigned if it was Created
-            if (existingJob.status === 'Created') {
-                await jobQueries.updateJob(value.job_id, { status: 'Assigned' }, user.id, connection);
-                await jobQueries.createJobStatusTracking({
-                    job_id: value.job_id,
-                    previous_status: 'Created',
-                    new_status: 'Assigned',
-                    status_reason: 'Employee assigned to job',
-                    comments: `Employee assigned with role: ${value.role_type}`
-                }, user.id, connection);
-            }
+            // Update job status to Assigned since we're adding the first assignment
+            await jobQueries.updateJob(value.job_id, { status: 'Assigned' }, user.id, connection);
+            await jobQueries.createJobStatusTracking({
+                job_id: value.job_id,
+                previous_status: 'Created',
+                new_status: 'Assigned',
+                status_reason: 'Employee assigned to job',
+                comments: `Employee assigned${value.role_type ? ` with role: ${value.role_type}` : ''}`
+            }, user.id, connection);
             
             // Get created assignment with details
             const [assignments] = await Promise.all([
@@ -548,10 +673,19 @@ export const createJobAssignment = async (req: Request, res: Response) => {
     } catch (err: any) {
         console.error('Error creating job assignment:', err);
         
-        if (err.message.includes('not found') || err.message.includes('Duplicate entry')) {
+        if (err.message.includes('not found') || 
+            err.message.includes('Duplicate entry') || 
+            err.message.includes('Cannot assign employees') || 
+            err.message.includes('already has existing assignments')) {
+            
+            let message = err.message;
+            if (err.message.includes('Duplicate')) {
+                message = 'Employee already assigned to this job with this role';
+            }
+            
             return res.status(400).json({ 
                 success: false, 
-                message: err.message.includes('Duplicate') ? 'Employee already assigned to this job with this role' : err.message,
+                message: message,
                 transaction_status: 'rolled_back'
             });
         }
@@ -653,7 +787,7 @@ export const updateJobStatus = async (req: Request, res: Response) => {
         const id = parseInt(req.params.id);
         if (!id) return res.status(400).json({ success: false, message: 'Invalid job id' });
 
-        const { error, value } = jobStatusTrackingSchema.create.validate(req.body, { abortEarly: false });
+        const { error, value } = jobStatusTrackingSchema.update.validate(req.body, { abortEarly: false });
         if (error) {
             return res.status(400).json({ 
                 success: false, 
@@ -677,6 +811,84 @@ export const updateJobStatus = async (req: Request, res: Response) => {
                 throw new Error('Job not found');
             }
 
+            // Check if job is already in a final status (Cancelled or Completed)
+            if (existingJob.status === 'Completed') {
+                throw new Error(`Job is already completed and cannot be modified. Completed jobs have final status and cannot be changed.`);
+            }
+            
+            if (existingJob.status === 'Cancelled') {
+                throw new Error(`Cannot update status of cancelled job. Cancelled jobs cannot be modified.`);
+            }
+
+            // If status is being set to "Completed", create final payment record
+            let paymentRecord = null;
+            if (value.new_status === 'Completed' && value.payment_details) {
+                const paymentData = value.payment_details;
+                
+                // Amount is inclusive of GST - calculate backwards
+                const totalAmountInclusiveGST = paymentData.amount;
+                const discountAmount = paymentData.discount_amount || 0;
+                const amountAfterDiscount = totalAmountInclusiveGST - discountAmount;
+                
+                // Default GST rate to 18% if not provided
+                const defaultGstRate = 18;
+                const gstRate = paymentData.gst_rate || defaultGstRate;
+                
+                let cgstAmount = 0, sgstAmount = 0, igstAmount = 0, totalTaxAmount = 0;
+                let cgstRate = 0, sgstRate = 0, igstRate = 0;
+                let taxableAmount = 0;
+                
+                // Calculate tax amounts from inclusive amount
+                if (paymentData.igst_rate && paymentData.igst_rate > 0) {
+                    // Interstate transaction - use IGST
+                    igstRate = paymentData.igst_rate;
+                    // Formula: Taxable Amount = Amount Inclusive / (1 + Tax Rate/100)
+                    taxableAmount = Math.round((amountAfterDiscount / (1 + igstRate / 100)) * 100) / 100;
+                    igstAmount = Math.round((amountAfterDiscount - taxableAmount) * 100) / 100;
+                    totalTaxAmount = igstAmount;
+                } else {
+                    // Intrastate transaction - use CGST + SGST (auto-split GST rate)
+                    cgstRate = paymentData.cgst_rate || (gstRate / 2);
+                    sgstRate = paymentData.sgst_rate || (gstRate / 2);
+                    
+                    // Formula: Taxable Amount = Amount Inclusive / (1 + Total GST Rate/100)
+                    taxableAmount = Math.round((amountAfterDiscount / (1 + gstRate / 100)) * 100) / 100;
+                    totalTaxAmount = Math.round((amountAfterDiscount - taxableAmount) * 100) / 100;
+                    
+                    // Split total tax between CGST and SGST
+                    cgstAmount = Math.round((totalTaxAmount / 2) * 100) / 100;
+                    sgstAmount = Math.round((totalTaxAmount / 2) * 100) / 100;
+                }
+                
+                // Create final payment record with calculated values
+                const paymentId = await jobQueries.createJobPayment({
+                    job_id: id,
+                    payment_type: 'Final',
+                    amount: totalAmountInclusiveGST, // Original amount (inclusive)
+                    discount_amount: discountAmount,
+                    taxable_amount: taxableAmount, // Calculated base amount
+                    gst_rate: gstRate,
+                    cgst_rate: cgstRate,
+                    sgst_rate: sgstRate,
+                    igst_rate: igstRate,
+                    cgst_amount: cgstAmount,
+                    sgst_amount: sgstAmount,
+                    igst_amount: igstAmount,
+                    total_tax_amount: totalTaxAmount,
+                    total_amount: amountAfterDiscount, // Amount after discount (still inclusive)
+                    payment_method: paymentData.payment_method,
+                    payment_status: paymentData.payment_status || 'Completed',
+                    transaction_id: paymentData.transaction_id || null,
+                    payment_reference: paymentData.payment_reference || null,
+                    payment_date: new Date().toISOString().split('T')[0], // Today's date
+                    receipt_url: paymentData.receipt_url || null
+                }, user.id, connection);
+                
+                // Get created payment details for response
+                const payments = await jobQueries.getJobPaymentsByJobId(id, connection);
+                paymentRecord = payments.find(p => p.id === paymentId);
+            }
+
             // Create status tracking entry
             await jobQueries.createJobStatusTracking({
                 job_id: id,
@@ -689,16 +901,23 @@ export const updateJobStatus = async (req: Request, res: Response) => {
 
             // Update job status
             await jobQueries.updateJob(id, { status: value.new_status }, user.id, connection);
-            
+
             // Get updated job
             const updatedJob = await jobQueries.getJobById(id, connection);
-            
+
             await connection.commit();
+
+            const responseMessage = value.new_status === 'Completed' && paymentRecord 
+                ? 'Job completed successfully with final payment recorded' 
+                : 'Job status updated successfully';
 
             res.json({ 
                 success: true, 
-                message: 'Job status updated successfully', 
-                data: updatedJob,
+                message: responseMessage, 
+                data: {
+                    job: updatedJob,
+                    ...(paymentRecord && { payment: paymentRecord })
+                },
                 transaction_status: 'committed'
             });
 
@@ -787,16 +1006,155 @@ export const getJobsByEmployee = async (req: Request, res: Response) => {
     }
 };
 
+export const getJobsCounts = async (req: Request, res: Response) => {
+    try {
+        const connection = await db.getConnection();
+        
+        try {
+            // Get total counts by status
+            const [statusCounts] = await connection.execute(`
+                SELECT 
+                    status,
+                    COUNT(*) as count
+                FROM jobs 
+                GROUP BY status
+            `) as any;
+
+            // Get overall statistics
+            const [overallStats] = await connection.execute(`
+                SELECT 
+                    COUNT(*) as total_jobs,
+                    COUNT(CASE WHEN status = 'Created' THEN 1 END) as created,
+                    COUNT(CASE WHEN status = 'Assigned' THEN 1 END) as assigned,
+                    COUNT(CASE WHEN status = 'In Progress' THEN 1 END) as in_progress,
+                    COUNT(CASE WHEN status = 'On Hold' THEN 1 END) as on_hold,
+                    COUNT(CASE WHEN status = 'Completed' THEN 1 END) as completed,
+                    COUNT(CASE WHEN status = 'Cancelled' THEN 1 END) as cancelled,
+                    COUNT(CASE WHEN status IN ('Created', 'Assigned', 'In Progress', 'On Hold') THEN 1 END) as active_jobs,
+                    COUNT(CASE WHEN status IN ('Completed', 'Cancelled') THEN 1 END) as closed_jobs
+                FROM jobs
+            `) as any;
+
+            // Get counts by service type
+            const [serviceTypeCounts] = await connection.execute(`
+                SELECT 
+                    service_type,
+                    COUNT(*) as count
+                FROM jobs 
+                GROUP BY service_type
+            `) as any;
+
+            // Get counts by solar service
+            const [solarServiceCounts] = await connection.execute(`
+                SELECT 
+                    solar_service,
+                    COUNT(*) as count
+                FROM jobs 
+                GROUP BY solar_service
+            `) as any;
+
+            // Get counts by priority
+            const [priorityCounts] = await connection.execute(`
+                SELECT 
+                    job_priority,
+                    COUNT(*) as count
+                FROM jobs 
+                WHERE job_priority IS NOT NULL
+                GROUP BY job_priority
+            `) as any;
+
+            // Get monthly job creation trend (last 12 months)
+            const [monthlyTrend] = await connection.execute(`
+                SELECT 
+                    DATE_FORMAT(created_at, '%Y-%m') as month,
+                    COUNT(*) as count,
+                    COUNT(CASE WHEN status = 'Completed' THEN 1 END) as completed_in_month
+                FROM jobs 
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+                GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+                ORDER BY month DESC
+            `) as any;
+
+            const stats = overallStats[0];
+            
+            // Organize status counts into an object
+            const statusBreakdown: any = {};
+            statusCounts.forEach((row: any) => {
+                statusBreakdown[row.status.toLowerCase().replace(' ', '_')] = row.count;
+            });
+
+            // Organize service type counts
+            const serviceTypeBreakdown: any = {};
+            serviceTypeCounts.forEach((row: any) => {
+                serviceTypeBreakdown[row.service_type] = row.count;
+            });
+
+            // Organize solar service counts
+            const solarServiceBreakdown: any = {};
+            solarServiceCounts.forEach((row: any) => {
+                solarServiceBreakdown[row.solar_service] = row.count;
+            });
+
+            // Organize priority counts
+            const priorityBreakdown: any = {};
+            priorityCounts.forEach((row: any) => {
+                priorityBreakdown[row.job_priority] = row.count;
+            });
+
+            const response = {
+                overall_statistics: {
+                    total_jobs: parseInt(stats.total_jobs) || 0,
+                    active_jobs: parseInt(stats.active_jobs) || 0,
+                    closed_jobs: parseInt(stats.closed_jobs) || 0,
+                    completion_rate: stats.total_jobs > 0 ? 
+                        Math.round((stats.completed / stats.total_jobs) * 100 * 100) / 100 : 0
+                },
+                status_breakdown: {
+                    created: parseInt(stats.created) || 0,
+                    assigned: parseInt(stats.assigned) || 0,
+                    in_progress: parseInt(stats.in_progress) || 0,
+                    on_hold: parseInt(stats.on_hold) || 0,
+                    completed: parseInt(stats.completed) || 0,
+                    cancelled: parseInt(stats.cancelled) || 0,
+                    ...statusBreakdown
+                },
+                service_type_breakdown: serviceTypeBreakdown,
+                solar_service_breakdown: solarServiceBreakdown,
+                priority_breakdown: priorityBreakdown,
+                monthly_trend: monthlyTrend,
+                generated_at: new Date().toISOString()
+            };
+
+            res.json({
+                success: true,
+                message: 'Job counts retrieved successfully',
+                data: response
+            });
+
+        } finally {
+            connection.release();
+        }
+        
+    } catch (err) {
+        console.error('Error fetching job counts:', err);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error fetching job counts', 
+            error: process.env.NODE_ENV === 'development' ? err : undefined 
+        });
+    }
+};
+
 export default { 
     createJob,
     getJob,
     listJobs,
-    listJobsWithDetails,
     updateJob,
     createJobLocation,
     createJobAssignment,
     createJobPayment,
     updateJobStatus,
     searchJobs,
-    getJobsByEmployee
+    getJobsByEmployee,
+    getJobsCounts
 };

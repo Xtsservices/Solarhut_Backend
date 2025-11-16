@@ -1443,7 +1443,7 @@ export const jobAssignmentSchema = {
             .required(),
         role_type: Joi.string()
             .valid('Lead Technician', 'Technician', 'Helper', 'Supervisor', 'Sales Representative')
-            .required(),
+            .optional(),
         start_date: Joi.date()
             .optional()
             .allow(null),
@@ -1499,6 +1499,89 @@ export const jobStatusTrackingSchema = {
             .max(500)
             .optional()
             .allow(null, '')
+    }),
+    update: Joi.object({
+        new_status: Joi.string()
+            .valid('Created', 'Assigned', 'In Progress', 'On Hold', 'Completed', 'Cancelled')
+            .required(),
+        status_reason: Joi.string()
+            .max(255)
+            .optional()
+            .allow(null, ''),
+        comments: Joi.string()
+            .max(1000)
+            .optional()
+            .allow(null, ''),
+        attachment_url: Joi.string()
+            .uri()
+            .max(500)
+            .optional()
+            .allow(null, ''),
+        // Payment details required when status is "Completed"
+        payment_details: Joi.when('new_status', {
+            is: 'Completed',
+            then: Joi.object({
+                amount: Joi.number()
+                    .positive()
+                    .required()
+                    .messages({
+                        'number.positive': 'Amount must be a positive number',
+                        'any.required': 'Amount is required when completing a job'
+                    }),
+                discount_amount: Joi.number()
+                    .min(0)
+                    .optional()
+                    .default(0),
+                gst_rate: Joi.number()
+                    .min(0)
+                    .max(100)
+                    .optional()
+                    .default(18),
+                cgst_rate: Joi.number()
+                    .min(0)
+                    .max(100)
+                    .optional(),
+                sgst_rate: Joi.number()
+                    .min(0)
+                    .max(100)
+                    .optional(),
+                igst_rate: Joi.number()
+                    .min(0)
+                    .max(100)
+                    .optional(),
+                payment_method: Joi.string()
+                    .valid('Cash', 'Bank Transfer', 'UPI', 'Card', 'Cheque', 'Online')
+                    .required()
+                    .messages({
+                        'any.required': 'Payment method is required when completing a job',
+                        'any.only': 'Payment method must be one of: Cash, Bank Transfer, UPI, Card, Cheque, Online'
+                    }),
+                payment_status: Joi.string()
+                    .valid('Pending', 'Completed')
+                    .required()
+                    .messages({
+                        'any.required': 'Payment status is required when completing a job',
+                        'any.only': 'Payment status must be either Pending or Completed'
+                    }),
+                transaction_id: Joi.string()
+                    .max(100)
+                    .required()
+                    .messages({
+                        'any.required': 'Transaction ID is required when completing a job',
+                        'string.max': 'Transaction ID cannot exceed 100 characters'
+                    }),
+                payment_reference: Joi.string()
+                    .max(100)
+                    .optional()
+                    .allow(null, ''),
+                receipt_url: Joi.string()
+                    .uri()
+                    .max(500)
+                    .optional()
+                    .allow(null, '')
+            }).required(),
+            otherwise: Joi.forbidden()
+        })
     })
 };
 
@@ -1513,6 +1596,52 @@ export const jobPaymentSchema = {
             .valid('Advance', 'Milestone', 'Final', 'Refund')
             .required(),
         amount: Joi.number()
+            .positive()
+            .required(),
+        discount_amount: Joi.number()
+            .min(0)
+            .optional()
+            .default(0),
+        taxable_amount: Joi.number()
+            .positive()
+            .required(),
+        gst_rate: Joi.number()
+            .min(0)
+            .max(100)
+            .optional()
+            .default(0),
+        cgst_rate: Joi.number()
+            .min(0)
+            .max(100)
+            .optional()
+            .default(0),
+        sgst_rate: Joi.number()
+            .min(0)
+            .max(100)
+            .optional()
+            .default(0),
+        igst_rate: Joi.number()
+            .min(0)
+            .max(100)
+            .optional()
+            .default(0),
+        cgst_amount: Joi.number()
+            .min(0)
+            .optional()
+            .default(0),
+        sgst_amount: Joi.number()
+            .min(0)
+            .optional()
+            .default(0),
+        igst_amount: Joi.number()
+            .min(0)
+            .optional()
+            .default(0),
+        total_tax_amount: Joi.number()
+            .min(0)
+            .optional()
+            .default(0),
+        total_amount: Joi.number()
             .positive()
             .required(),
         payment_method: Joi.string()
@@ -1537,6 +1666,52 @@ export const jobPaymentSchema = {
             .allow(null),
         milestone_description: Joi.string()
             .max(500)
+            .optional()
+            .allow(null, ''),
+        receipt_url: Joi.string()
+            .uri()
+            .max(500)
+            .optional()
+            .allow(null, '')
+    }),
+    createFinalPayment: Joi.object({
+        amount: Joi.number()
+            .positive()
+            .required(),
+        discount_amount: Joi.number()
+            .min(0)
+            .optional()
+            .default(0),
+        gst_rate: Joi.number()
+            .min(0)
+            .max(100)
+            .optional()
+            .default(18),
+        cgst_rate: Joi.number()
+            .min(0)
+            .max(100)
+            .optional(),
+        sgst_rate: Joi.number()
+            .min(0)
+            .max(100)
+            .optional(),
+        igst_rate: Joi.number()
+            .min(0)
+            .max(100)
+            .optional(),
+        payment_method: Joi.string()
+            .valid('Cash', 'Bank Transfer', 'UPI', 'Card', 'Cheque', 'Online')
+            .required(),
+        payment_status: Joi.string()
+            .valid('Pending', 'Completed')
+            .optional()
+            .default('Completed'),
+        transaction_id: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, ''),
+        payment_reference: Joi.string()
+            .max(100)
             .optional()
             .allow(null, ''),
         receipt_url: Joi.string()
