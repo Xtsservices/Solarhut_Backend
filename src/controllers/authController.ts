@@ -4,6 +4,7 @@ import * as otpQueries from '../queries/otpQueries';
 import * as permissionQueries from '../queries/permissionQueries';
 import { generateToken } from '../utils/authUtils';
 import { generateOTP, sendSMS, formatMobile } from '../utils/otpUtils';
+import { sendOTPSMS } from '../utils/smsUtils';
 import { TokenPayload } from '../interfaces/auth';
 
 export const requestOTP = async (req: Request, res: Response) => {
@@ -42,9 +43,8 @@ export const requestOTP = async (req: Request, res: Response) => {
         const otp = "123456";
         await otpQueries.createOTP(formattedMobile, otp);
 
-        // Send OTP via SMS
-        const message = `Your Solar Hut login OTP is: ${otp}. Valid for 3 minutes.`;
-        await sendSMS(formattedMobile, message);
+        // Send OTP via SMS with user details
+        await sendOTPSMS(employee.first_name, formattedMobile, otp);
 
         res.json({
             success: true,

@@ -1,13 +1,32 @@
 export const allFeatures =[
     "Dashboard",
-  "Enquiries",
+  "Leads",
   "Employees",
   "Packages",
   "Payments",
-  "Job&Supplier",
+  "Contacts",
   "Work_Progress",
   "Masters",
+  "Locations",
   "Notifications",
   "Settings",
-  "Profile"
+  "Profile",
+  "Jobs",
+  "My_Tasks"
 ]
+
+
+// { id: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard },
+//   { id: 'Leads', label: 'Leads', icon: FileText },
+//   { id: 'Employees', label: 'Employees', icon: Users },
+//   { id: 'Packages', label: 'Packages', icon: Package },
+//   { id: 'Payments', label: 'Payments', icon: IndianRupee },
+//   { id: 'Contacts', label: 'Contacts', icon: Handshake },
+//   { id: 'Work_Progress', label: 'Work Progress', icon: TrendingUp },
+//   { id: 'Masters', label: 'Masters', icon: Shield },
+//   { id: 'Locations', label: 'Locations', icon: MapPin },
+//   { id: 'Notifications', label: 'Notifications', icon: Bell },
+//   { id: 'Settings', label: 'Settings', icon: Settings },
+//   { id: 'Profile', label: 'Profile', icon: User },
+//   { id: 'Jobs', label: 'Jobs', icon: Briefcase },
+//   { id: 'My_Tasks', label: 'My Tasks', icon: ListChecks },
