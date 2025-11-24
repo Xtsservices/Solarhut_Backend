@@ -239,13 +239,13 @@ export const listJobs = async (req: Request, res: Response) => {
                        -- Latest status tracking
                        (SELECT jst.new_status FROM job_status_tracking jst 
                         WHERE jst.job_id = j.id 
-                        ORDER BY jst.status_date DESC LIMIT 1) as latest_status,
-                       (SELECT jst.status_date FROM job_status_tracking jst 
+                        ORDER BY jst.changed_at DESC LIMIT 1) as latest_status,
+                       (SELECT jst.changed_at FROM job_status_tracking jst 
                         WHERE jst.job_id = j.id 
-                        ORDER BY jst.status_date DESC LIMIT 1) as latest_status_date,
+                        ORDER BY jst.changed_at DESC LIMIT 1) as latest_status_date,
                        (SELECT jst.comments FROM job_status_tracking jst 
                         WHERE jst.job_id = j.id 
-                        ORDER BY jst.status_date DESC LIMIT 1) as latest_status_comments,
+                        ORDER BY jst.changed_at DESC LIMIT 1) as latest_status_comments,
                        -- Payment summary
                        (SELECT COUNT(*) FROM job_payments jp 
                         WHERE jp.job_id = j.id) as total_payments,
