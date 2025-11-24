@@ -9,7 +9,10 @@ import * as districtQueries from "./queries/districtQueries";
 const createRolesTable = `
 CREATE TABLE IF NOT EXISTS roles (
     role_id INT AUTO_INCREMENT PRIMARY KEY,
-    role_name VARCHAR(100) NOT NULL UNIQUE
+    role_name VARCHAR(100) NOT NULL UNIQUE,
+    status ENUM('Active','Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )`;
 
 const createEmployeesTable = `
@@ -47,6 +50,7 @@ CREATE TABLE IF NOT EXISTS contacts (
     mobile VARCHAR(15) NOT NULL,
     reason VARCHAR(100) NOT NULL,
     message TEXT,
+    status ENUM('New','In Progress','Resolved','Closed') DEFAULT 'New',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )`;
@@ -702,6 +706,64 @@ const migrateJobPaymentsTable = async () => {
   }
 };
 
+const migrateRolesTable = async () => {
+  try {
+    // Add status and timestamps to roles table
+    const rolesColumns = [
+      'ADD COLUMN status ENUM(\'Active\',\'Inactive\') DEFAULT \'Active\'',
+      'ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+      'ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'
+    ];
+
+    for (const column of rolesColumns) {
+      try {
+        await db.execute(`ALTER TABLE roles ${column}`);
+      } catch (columnError: any) {
+        // If column already exists, skip it
+        if (columnError.code !== 'ER_DUP_FIELDNAME') {
+          console.log(`Error adding column to roles: ${columnError.message}`);
+        }
+      }
+    }
+
+    console.log("Successfully migrated roles table - added status and timestamps");
+  } catch (error: any) {
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      console.log("roles table doesn't exist yet, will be created with correct schema");
+    } else {
+      console.log("Migration for roles table:", error.message);
+    }
+  }
+};
+
+const migrateContactsTable = async () => {
+  try {
+    // Add status column to contacts table
+    const contactsColumns = [
+      'ADD COLUMN status ENUM(\'New\',\'In Progress\',\'Resolved\',\'Closed\') DEFAULT \'New\''
+    ];
+
+    for (const column of contactsColumns) {
+      try {
+        await db.execute(`ALTER TABLE contacts ${column}`);
+      } catch (columnError: any) {
+        // If column already exists, skip it
+        if (columnError.code !== 'ER_DUP_FIELDNAME') {
+          console.log(`Error adding column to contacts: ${columnError.message}`);
+        }
+      }
+    }
+
+    console.log("Successfully migrated contacts table - added status column");
+  } catch (error: any) {
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      console.log("contacts table doesn't exist yet, will be created with correct schema");
+    } else {
+      console.log("Migration for contacts table:", error.message);
+    }
+  }
+};
+
 export const initializeDatabase = async () => {
   try {
     // Create tables
@@ -728,6 +790,8 @@ export const initializeDatabase = async () => {
     // Run migrations for existing tables
     await migrateJobAssignmentsTable();
     await migrateJobPaymentsTable();
+    await migrateRolesTable();
+    await migrateContactsTable();
 
     // Insert default roles if they don't exist
     await insertDefaultRoles();

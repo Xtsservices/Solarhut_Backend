@@ -1767,3 +1767,151 @@ export const jobPaymentSchema = {
             .allow(null)
     })
 };
+
+// Role validation schemas
+export const roleSchema = {
+    create: Joi.object({
+        role_name: Joi.string()
+            .min(2)
+            .max(100)
+            .required()
+            .trim()
+            .messages({
+                'string.min': 'Role name must be at least 2 characters long',
+                'string.max': 'Role name cannot exceed 100 characters',
+                'string.empty': 'Role name is required',
+                'any.required': 'Role name is required'
+            }),
+        status: Joi.string()
+            .valid('Active', 'Inactive')
+            .optional()
+            .default('Active')
+            .messages({
+                'any.only': 'Status must be either Active or Inactive'
+            })
+    }),
+    update: Joi.object({
+        role_name: Joi.string()
+            .min(2)
+            .max(100)
+            .optional()
+            .trim()
+            .messages({
+                'string.min': 'Role name must be at least 2 characters long',
+                'string.max': 'Role name cannot exceed 100 characters'
+            }),
+        status: Joi.string()
+            .valid('Active', 'Inactive')
+            .optional()
+            .messages({
+                'any.only': 'Status must be either Active or Inactive'
+            })
+    })
+};
+
+// Contact validation schemas
+export const contactSchema = {
+    create: Joi.object({
+        full_name: Joi.string()
+            .min(2)
+            .max(100)
+            .required()
+            .trim()
+            .messages({
+                'string.min': 'Full name must be at least 2 characters long',
+                'string.max': 'Full name cannot exceed 100 characters',
+                'string.empty': 'Full name is required',
+                'any.required': 'Full name is required'
+            }),
+        email: Joi.string()
+            .email()
+            .required()
+            .trim()
+            .messages({
+                'string.email': 'Invalid email format',
+                'string.empty': 'Email is required',
+                'any.required': 'Email is required'
+            }),
+        mobile: Joi.string()
+            .pattern(/^(\+\d{7,15}|[6-9]\d{9})$/)
+            .required()
+            .messages({
+                'string.pattern.base': 'Invalid mobile number format. Use 10-digit Indian format or international format with country code',
+                'string.empty': 'Mobile number is required',
+                'any.required': 'Mobile number is required'
+            }),
+        reason: Joi.string()
+            .min(2)
+            .max(100)
+            .required()
+            .trim()
+            .messages({
+                'string.min': 'Reason must be at least 2 characters long',
+                'string.max': 'Reason cannot exceed 100 characters',
+                'string.empty': 'Reason is required',
+                'any.required': 'Reason is required'
+            }),
+        message: Joi.string()
+            .max(1000)
+            .optional()
+            .allow(null, '')
+            .trim()
+            .messages({
+                'string.max': 'Message cannot exceed 1000 characters'
+            }),
+        status: Joi.string()
+            .valid('New', 'In Progress', 'Resolved', 'Closed')
+            .optional()
+            .default('New')
+            .messages({
+                'any.only': 'Status must be one of: New, In Progress, Resolved, Closed'
+            })
+    }),
+    update: Joi.object({
+        full_name: Joi.string()
+            .min(2)
+            .max(100)
+            .optional()
+            .trim()
+            .messages({
+                'string.min': 'Full name must be at least 2 characters long',
+                'string.max': 'Full name cannot exceed 100 characters'
+            }),
+        email: Joi.string()
+            .email()
+            .optional()
+            .trim()
+            .messages({
+                'string.email': 'Invalid email format'
+            }),
+        mobile: Joi.string()
+            .pattern(/^(\+\d{7,15}|[6-9]\d{9})$/)
+            .optional()
+            .messages({
+                'string.pattern.base': 'Invalid mobile number format. Use 10-digit Indian format or international format with country code'
+            }),
+        reason: Joi.string()
+            .min(2)
+            .max(100)
+            .optional()
+            .trim()
+            .messages({
+                'string.min': 'Reason must be at least 2 characters long',
+                'string.max': 'Reason cannot exceed 100 characters'
+            }),
+        message: Joi.string()
+            .max(1000)
+            .optional()
+            .allow(null, '')
+            .trim()
+            .messages({
+                'string.max': 'Message cannot exceed 1000 characters'
+            }),
+        status: Joi.string()
+            .valid('New', 'In Progress', 'Resolved', 'Closed')
+            .optional()
+            .messages({
+                'any.only': 'Status must be one of: New, In Progress, Resolved, Closed'
+            })
+    })
+};
