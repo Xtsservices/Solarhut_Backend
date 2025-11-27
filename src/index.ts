@@ -19,6 +19,7 @@ import districtRoutes from './routes/districtRoutes';
 import customerRoutes from './routes/customerRoutes';
 import jobRoutes from './routes/jobRoutes';
 import myTasksRoutes from './routes/myTasksRoutes';
+import profileRoutes from './routes/profileRoutes';
 
 dotenv.config();
 
@@ -112,6 +113,7 @@ const initApp = async () => {
     app.use('/api/customers', customerRoutes);
     app.use('/api/jobs', jobRoutes);
     app.use('/api/mytasks', myTasksRoutes);
+    app.use('/api/profile', profileRoutes);
 
 
 

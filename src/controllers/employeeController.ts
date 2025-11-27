@@ -85,12 +85,22 @@ export const getEmployeeById = async (req: Request, res: Response) => {
             });
         }
 
+        const responseData = {
+            ...employee,
+            password: undefined
+        };
+        
+        // Debug: Log the response data
+        console.log('Employee data being sent:', JSON.stringify({
+            id: responseData.id,
+            joining_date: responseData.joining_date,
+            roles: responseData.roles,
+            role_names_display: (responseData as any).role_names_display
+        }, null, 2));
+
         res.json({
             success: true,
-            data: {
-                ...employee,
-                password: undefined
-            }
+            data: responseData
         });
     } catch (error) {
         console.error('Error fetching employee:', error);

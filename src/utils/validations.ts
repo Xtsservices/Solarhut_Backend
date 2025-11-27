@@ -87,6 +87,10 @@ export const employeeSchema = {
             .messages({
                 'string.max': 'Address cannot exceed 500 characters'
             }),
+        joining_date: Joi.date()
+            .messages({
+                'date.base': 'Invalid joining date'
+            }),
         status: Joi.string()
             .valid('Active', 'Inactive', 'On Leave')
             .messages({
