@@ -20,9 +20,11 @@ import customerRoutes from './routes/customerRoutes';
 import jobRoutes from './routes/jobRoutes';
 import myTasksRoutes from './routes/myTasksRoutes';
 import profileRoutes from './routes/profileRoutes';
+import statsRoutes from './routes/statsRoutes';
+import paymentsStatsRoutes from './routes/paymentsStatsRoutes';
 
 dotenv.config();
-
+      
 const app: Express = express();
 const port = parseInt(process.env.PORT || '3200', 10);
 
@@ -97,7 +99,7 @@ const initApp = async () => {
       });
     });
 
-    // Mount API routes
+    // Mount API routes 
     app.use('/api/leads', leadRoutes);
     app.use('/api/assignleads', assignLeadsRoutes);
     app.use('/api/packages', packageRoutes);
@@ -114,7 +116,8 @@ const initApp = async () => {
     app.use('/api/jobs', jobRoutes);
     app.use('/api/mytasks', myTasksRoutes);
     app.use('/api/profile', profileRoutes);
-
+    app.use('/api/stats', statsRoutes);
+    app.use('/api/payments/stats', paymentsStatsRoutes);
 
 
     // 404 handler
