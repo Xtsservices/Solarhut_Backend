@@ -1,3 +1,75 @@
+// Summary graph API: count of leads (new+assigned, not completed) and jobs
+export const getSummaryGraphStats = async (req: Request, res: Response) => {
+    try {
+        // Parse date range from query params
+        let { startDate, endDate } = req.query;
+        const now = new Date();
+        let start, end;
+        if (startDate && endDate) {
+            start = new Date(startDate as string);
+            end = new Date(endDate as string);
+        } else {
+            // Default: last 3 months
+            end = new Date(now.getFullYear(), now.getMonth() + 1, 0); // End of current month
+            start = new Date(now.getFullYear(), now.getMonth() - 2, 1); // Start of month 2 months ago
+        }
+
+        // Monthly leads count (New+Assigned, not Completed)
+        const [leadRowsRaw] = await db.execute(
+            `SELECT YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as count
+             FROM leads
+             WHERE status IN ('New', 'Assigned')
+               AND created_at BETWEEN ? AND ?
+             GROUP BY YEAR(created_at), MONTH(created_at)
+             ORDER BY year DESC, month DESC`,
+            [start, end]
+        );
+        const leadRows = leadRowsRaw as any[];
+
+        // Monthly jobs count
+        const [jobRowsRaw] = await db.execute(
+            `SELECT YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as count
+             FROM jobs
+             WHERE created_at BETWEEN ? AND ?
+             GROUP BY YEAR(created_at), MONTH(created_at)
+             ORDER BY year DESC, month DESC`,
+            [start, end]
+        );
+        const jobRows = jobRowsRaw as any[];
+
+        // Helper to format date as dd-mm-yyyy
+        const formatDate = (date: Date) => {
+            const d = new Date(date);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}-${month}-${year}`;
+        };
+
+        // Add formatted month-year to each monthly result
+        const formatMonthly = (arr: any[]) => arr.map(row => ({
+            ...row,
+            monthYear: `${String(row.month).padStart(2, '0')}-${row.year}`
+        }));
+
+        res.json({
+            success: true,
+            data: {
+                leadsMonthly: formatMonthly(leadRows),
+                jobsMonthly: formatMonthly(jobRows),
+                startDate: formatDate(start),
+                endDate: formatDate(end)
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching summary graph stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching summary graph stats',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+}
 import { Request, Response } from 'express';
 import { db } from '../db';
 

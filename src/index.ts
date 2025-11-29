@@ -40,6 +40,28 @@ const errorHandler = (err: Error, req: Request, res: Response, next: NextFunctio
 
 // Database initialization
 const initApp = async () => {
+    // Ensure admin user exists
+    const { getAdminEmployeeByMobileOrEmail, createEmployee } = require('./queries/employeeQueries');
+    const adminMobile = '9701646859';
+    const adminEmail = 'solarhutsolutions@gmail.com';
+    const adminFirstName = 'Solarhut';
+    const adminLastName = 'Admin';
+    const adminJoiningDate = new Date();
+    const adminStatus = 'Active';
+    let adminUser = await getAdminEmployeeByMobileOrEmail(adminMobile, adminEmail);
+    if (!adminUser) {
+      await createEmployee({
+        first_name: adminFirstName,
+        last_name: adminLastName,
+        email: adminEmail,
+        mobile: adminMobile,
+        joining_date: adminJoiningDate,
+        status: adminStatus
+      });
+      console.log('✅ Admin user created.');
+    } else {
+      console.log('✅ Admin user already exists.');
+    }
   try {
     // Test database connection
     await db.getConnection();
@@ -118,6 +140,10 @@ const initApp = async () => {
     app.use('/api/profile', profileRoutes);
     app.use('/api/stats', statsRoutes);
     app.use('/api/payments/stats', paymentsStatsRoutes);
+    const paymentsSummaryRoutes = require('./routes/paymentsSummaryRoutes').default;
+    app.use('/api/payments', paymentsSummaryRoutes);
+    const summaryGraphRoutes = require('./routes/summaryGraphRoutes').default;
+    app.use('/api/summary', summaryGraphRoutes);
 
 
     // 404 handler

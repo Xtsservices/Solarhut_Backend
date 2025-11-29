@@ -1,3 +1,11 @@
+// Check if admin employee exists by mobile or email
+export const getAdminEmployeeByMobileOrEmail = async (mobile: string, email: string) => {
+    const [rows] = await db.execute<RowDataPacket[]>(
+        'SELECT * FROM employees WHERE mobile = ? OR email = ? LIMIT 1',
+        [mobile, email]
+    );
+    return (rows as any[])[0] || null;
+};
 import { db } from '../db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 
