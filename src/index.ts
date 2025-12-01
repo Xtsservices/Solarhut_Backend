@@ -121,7 +121,11 @@ const initApp = async () => {
       });
     });
 
-    // Mount API routes 
+    // Import custom routes before mounting
+    const paymentsSummaryRoutes = require('./routes/paymentsSummaryRoutes').default;
+    const summaryGraphRoutes = require('./routes/summaryGraphRoutes').default;
+
+    // Mount API routes
     app.use('/api/leads', leadRoutes);
     app.use('/api/assignleads', assignLeadsRoutes);
     app.use('/api/packages', packageRoutes);
@@ -140,9 +144,7 @@ const initApp = async () => {
     app.use('/api/profile', profileRoutes);
     app.use('/api/stats', statsRoutes);
     app.use('/api/payments/stats', paymentsStatsRoutes);
-    const paymentsSummaryRoutes = require('./routes/paymentsSummaryRoutes').default;
     app.use('/api/payments', paymentsSummaryRoutes);
-    const summaryGraphRoutes = require('./routes/summaryGraphRoutes').default;
     app.use('/api/summary', summaryGraphRoutes);
 
 

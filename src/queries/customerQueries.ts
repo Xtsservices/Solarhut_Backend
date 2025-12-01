@@ -18,7 +18,6 @@ export const createCustomer = async (
         gst_number?: string;
         pan_number?: string;
         lead_source?: string;
-        notes?: string;
         status?: string;
     },
     created_by: number,
@@ -27,15 +26,14 @@ export const createCustomer = async (
     const conn = connection || db;
     const [result] = await conn.execute(
         `INSERT INTO customers (
-            customer_code, first_name, last_name, full_name, mobile, email,
+            customer_code, first_name, last_name, mobile, email,
             alternate_mobile, date_of_birth, gender, customer_type, company_name,
             gst_number, pan_number, lead_source, notes, status, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             customerData.customer_code,
             customerData.first_name,
             customerData.last_name || null,
-            customerData.full_name || null,
             customerData.mobile,
             customerData.email || null,
             customerData.alternate_mobile || null,
@@ -267,15 +265,19 @@ export const updateCustomer = async (
     connection?: PoolConnection
 ) => {
     const conn = connection || db;
+    // Remove full_name if present (generated column)
+    if ('full_name' in updateData) {
+        delete updateData.full_name;
+    }
     const fields = Object.keys(updateData);
     // Convert undefined values to null for MySQL compatibility
     const values = Object.values(updateData).map(value => value === undefined ? null : value);
-    
+
     if (fields.length === 0) return false;
-    
+
     const setClause = fields.map(field => `${field} = ?`).join(', ');
     values.push(updated_by, id);
-    
+
     const [result] = await conn.execute(
         `UPDATE customers SET ${setClause}, updated_by = ? WHERE id = ?`,
         values
@@ -422,35 +424,12 @@ export const generateCustomerCode = async (connection?: PoolConnection) => {
     const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
     
     // Get the count of customers created this month
-    const [countRows] = await conn.execute(
-        `SELECT COUNT(*) as count FROM customers 
-         WHERE DATE_FORMAT(created_at, '%Y-%m') = ?`,
-        [`${currentDate.getFullYear()}-${month}`]
+    const [rows] = await conn.execute(
+        `SELECT COUNT(*) as count FROM customers WHERE customer_code LIKE ?`,
+        [`CUST${year}${month}%`]
     );
-    
-    const count = (countRows as any[])[0].count + 1;
+    const count = (rows as any[])[0].count + 1;
     const sequence = count.toString().padStart(4, '0');
     
     return `CUST${year}${month}${sequence}`;
-};
-
-export default {
-    createCustomer,
-    createCustomerLocation,
-    getCustomerLocations,
-    getPrimaryCustomerLocation,
-    updateCustomerLocation,
-    deleteCustomerLocation,
-    getCustomerById,
-    getCustomerByCode,
-    getCustomerByMobile,
-    getCustomerByEmail,
-    getAllCustomers,
-    updateCustomer,
-    deactivateCustomer,
-    activateCustomer,
-    blacklistCustomer,
-    searchCustomers,
-    getCustomersByLocation,
-    generateCustomerCode
 };
