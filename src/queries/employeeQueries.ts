@@ -1,3 +1,11 @@
+// Check if admin employee exists by mobile or email
+export const getAdminEmployeeByMobileOrEmail = async (mobile: string, email: string) => {
+    const [rows] = await db.execute<RowDataPacket[]>(
+        'SELECT * FROM employees WHERE mobile = ? OR email = ? LIMIT 1',
+        [mobile, email]
+    );
+    return (rows as any[])[0] || null;
+};
 import { db } from '../db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 
@@ -112,6 +120,7 @@ export const getEmployeeById = async (id: number) => {
             GROUP_CONCAT(r.role_name) as role_names,
             GROUP_CONCAT(er.role_id) as role_ids,
             GROUP_CONCAT(er.assigned_at) as role_assigned_dates,
+            GROUP_CONCAT(er.updated_at) as role_updated_dates,
             GROUP_CONCAT(er.status) as role_statuses
          FROM employees e
          LEFT JOIN employee_roles er ON e.id = er.employee_id
@@ -125,25 +134,36 @@ export const getEmployeeById = async (id: number) => {
 
     const employee = employees[0];
     
+    // Format joining_date to YYYY-MM-DD if it's a Date object
+    if (employee.joining_date && employee.joining_date instanceof Date) {
+        (employee as any).joining_date = employee.joining_date.toISOString().split('T')[0];
+    }
+    
     // Format roles if they exist
     if (employee.role_names) {
         const roleNames = employee.role_names.split(',');
         const roleIds = employee.role_ids.split(',').map(Number);
-        const roleDates = employee.role_assigned_dates.split(',').map((d: string) => new Date(d));
+        const assignedDates = employee.role_assigned_dates.split(',').map((d: string) => new Date(d));
+        const updatedDates = employee.role_updated_dates.split(',').map((d: string) => new Date(d));
         const roleStatuses = employee.role_statuses.split(',');
 
         employee.roles = roleNames.map((name: string, index: number) => ({
-            id: roleIds[index],
+            role_id: roleIds[index],
             role_name: name,
-            assigned_date: roleDates[index],
-            status: roleStatuses[index]
+            assigned_at: assignedDates[index],
+            updated_at: updatedDates[index],
+            status: roleStatuses[index] as 'Active' | 'Inactive'
         }));
+        
+        // Add a display-friendly role names field
+        (employee as any).role_names_display = roleNames.join(', ');
     }
 
     // Remove concatenated fields
     delete employee.role_names;
     delete employee.role_ids;
     delete employee.role_assigned_dates;
+    delete employee.role_updated_dates;
     delete employee.role_statuses;
 
     return employee;
@@ -162,6 +182,7 @@ export const getEmployeeByMobile = async (mobile: string) => {
             GROUP_CONCAT(r.role_name) as role_names,
             GROUP_CONCAT(er.role_id) as role_ids,
             GROUP_CONCAT(er.assigned_at) as role_assigned_dates,
+            GROUP_CONCAT(er.updated_at) as role_updated_dates,
             GROUP_CONCAT(er.status) as role_statuses
          FROM employees e
          LEFT JOIN employee_roles er ON e.id = er.employee_id
@@ -177,21 +198,27 @@ export const getEmployeeByMobile = async (mobile: string) => {
     if (employee.role_names) {
         const roleNames = employee.role_names.split(',');
         const roleIds = employee.role_ids.split(',').map(Number);
-        const roleDates = employee.role_assigned_dates.split(',').map((d: string) => new Date(d));
+        const assignedDates = employee.role_assigned_dates.split(',').map((d: string) => new Date(d));
+        const updatedDates = employee.role_updated_dates.split(',').map((d: string) => new Date(d));
         const roleStatuses = employee.role_statuses.split(',');
 
         employee.roles = roleNames.map((name: string, index: number) => ({
-            id: roleIds[index],
+            role_id: roleIds[index],
             role_name: name,
-            assigned_date: roleDates[index],
-            status: roleStatuses[index]
+            assigned_at: assignedDates[index],
+            updated_at: updatedDates[index],
+            status: roleStatuses[index] as 'Active' | 'Inactive'
         }));
+        
+        // Add a display-friendly role names field
+        (employee as any).role_names_display = roleNames.join(', ');
     }
 
     // Remove concatenated helper fields
     delete (employee as any).role_names;
     delete (employee as any).role_ids;
     delete (employee as any).role_assigned_dates;
+    delete (employee as any).role_updated_dates;
     delete (employee as any).role_statuses;
 
     return employee;
@@ -207,7 +234,7 @@ export const getEmployeeByUserId = async (userId: string) => {
 export const updateEmployee = async (id: number, updates: Partial<Employee>) => {
     const allowedUpdates = [
         'first_name', 'last_name', 'email', 'mobile',
-        'date_of_birth', 'address', 'status'
+        'date_of_birth', 'address', 'joining_date', 'status'
     ];
     
     const validUpdates = Object.entries(updates)
@@ -262,6 +289,7 @@ export const getAllEmployees = async () => {
             GROUP_CONCAT(r.role_name) as role_names,
             GROUP_CONCAT(er.role_id) as role_ids,
             GROUP_CONCAT(er.assigned_at) as role_assigned_dates,
+            GROUP_CONCAT(er.updated_at) as role_updated_dates,
             GROUP_CONCAT(er.status) as role_statuses
          FROM employees e
          LEFT JOIN employee_roles er ON e.id = er.employee_id
@@ -274,20 +302,26 @@ export const getAllEmployees = async () => {
         if (employee.role_names) {
             const roleNames = employee.role_names.split(',');
             const roleIds = employee.role_ids.split(',').map(Number);
-            const roleDates = employee.role_assigned_dates.split(',').map((d: string) => new Date(d));
+            const assignedDates = employee.role_assigned_dates.split(',').map((d: string) => new Date(d));
+            const updatedDates = employee.role_updated_dates.split(',').map((d: string) => new Date(d));
             const roleStatuses = employee.role_statuses.split(',');
 
             employee.roles = roleNames.map((name: string, index: number) => ({
-                id: roleIds[index],
+                role_id: roleIds[index],
                 role_name: name,
-                assigned_date: roleDates[index],
-                status: roleStatuses[index]
+                assigned_at: assignedDates[index],
+                updated_at: updatedDates[index],
+                status: roleStatuses[index] as 'Active' | 'Inactive'
             }));
+            
+            // Add a display-friendly role names field
+            (employee as any).role_names_display = roleNames.join(', ');
         }
 
         delete employee.role_names;
         delete employee.role_ids;
         delete employee.role_assigned_dates;
+        delete employee.role_updated_dates;
         delete employee.role_statuses;
 
         return employee;

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as featureQueries from '../queries/featureQueries';
 import { featureSchema } from '../utils/validations';
+import { allFeatures } from '../utils/common';
 
 export const createFeature = async (req: Request, res: Response) => {
     try {
@@ -172,4 +173,19 @@ export const listMyFeatures = async (req: Request, res: Response) => {
     }
 };
 
-export default { createFeature, editFeature, deleteFeature, getFeature, listFeatures, listMyFeatures };
+export const allfeatures = async (req: Request, res: Response) => {
+    try {
+        const features = allFeatures;   
+        res.json({ success: true, data: features });
+    }
+    catch (err) {
+        console.error('Error fetching all features:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching all features',
+            error: process.env.NODE_ENV === 'development' ? err : undefined
+        });
+    }
+};
+
+export default { createFeature,allfeatures, editFeature, deleteFeature, getFeature, listFeatures, listMyFeatures };

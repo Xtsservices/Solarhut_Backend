@@ -19,6 +19,9 @@ export interface Lead extends RowDataPacket {
     location: string;
     property_type: ResidentialPropertyType | CommercialPropertyType | IndustrialPropertyType;
     assigned_to?: number | null;
+    assigned_to_name?: string | null;
+    assigned_to_email?: string | null;
+    assigned_to_mobile?: string | null;
     channel: string;
     created_at: Date;
     updated_at: Date;
@@ -60,7 +63,13 @@ export const createLead = async (leadData: Omit<Lead, 'id' | 'created_at' | 'upd
 
 export const getLeadById = async (id: number) => {
     const [leads] = await db.execute<Lead[]>(
-        'SELECT * FROM leads WHERE id = ?',
+        `SELECT l.*, 
+                CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
+                e.email as assigned_to_email,
+                e.mobile as assigned_to_mobile
+         FROM leads l
+         LEFT JOIN employees e ON l.assigned_to = e.id
+         WHERE l.id = ?`,
         [id]
     );
     return leads[0];
@@ -84,14 +93,27 @@ export const assignLeadToEmployee = async (id: number, employeeId: number) => {
 
 export const getAllLeads = async () => {
     const [leads] = await db.execute<Lead[]>(
-        'SELECT * FROM leads ORDER BY created_at DESC'
+        `SELECT l.*, 
+                CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
+                e.email as assigned_to_email,
+                e.mobile as assigned_to_mobile
+         FROM leads l
+         LEFT JOIN employees e ON l.assigned_to = e.id
+         ORDER BY l.created_at DESC`
     );
     return leads;
 };
 
 export const getLeadsByDateRange = async (startDate: Date, endDate: Date) => {
     const [leads] = await db.execute<Lead[]>(
-        'SELECT * FROM leads WHERE created_at BETWEEN ? AND ? ORDER BY created_at DESC',
+        `SELECT l.*, 
+                CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
+                e.email as assigned_to_email,
+                e.mobile as assigned_to_mobile
+         FROM leads l
+         LEFT JOIN employees e ON l.assigned_to = e.id
+         WHERE l.created_at BETWEEN ? AND ? 
+         ORDER BY l.created_at DESC`,
         [startDate, endDate]
     );
     return leads;
@@ -99,7 +121,14 @@ export const getLeadsByDateRange = async (startDate: Date, endDate: Date) => {
 
 export const getLeadsByServiceType = async (serviceType: Lead['service_type']) => {
     const [leads] = await db.execute<Lead[]>(
-        'SELECT * FROM leads WHERE service_type = ? ORDER BY created_at DESC',
+        `SELECT l.*, 
+                CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
+                e.email as assigned_to_email,
+                e.mobile as assigned_to_mobile
+         FROM leads l
+         LEFT JOIN employees e ON l.assigned_to = e.id
+         WHERE l.service_type = ? 
+         ORDER BY l.created_at DESC`,
         [serviceType]
     );
     return leads;
@@ -107,7 +136,14 @@ export const getLeadsByServiceType = async (serviceType: Lead['service_type']) =
 
 export const getLeadsByPropertyType = async (propertyType: Lead['property_type']) => {
     const [leads] = await db.execute<Lead[]>(
-        'SELECT * FROM leads WHERE property_type = ? ORDER BY created_at DESC',
+        `SELECT l.*, 
+                CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
+                e.email as assigned_to_email,
+                e.mobile as assigned_to_mobile
+         FROM leads l
+         LEFT JOIN employees e ON l.assigned_to = e.id
+         WHERE l.property_type = ? 
+         ORDER BY l.created_at DESC`,
         [propertyType]
     );
     return leads;
@@ -115,7 +151,14 @@ export const getLeadsByPropertyType = async (propertyType: Lead['property_type']
 
 export const getLeadsBySolarService = async (solarService: Lead['solar_service']) => {
     const [leads] = await db.execute<Lead[]>(
-        'SELECT * FROM leads WHERE solar_service = ? ORDER BY created_at DESC',
+        `SELECT l.*, 
+                CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
+                e.email as assigned_to_email,
+                e.mobile as assigned_to_mobile
+         FROM leads l
+         LEFT JOIN employees e ON l.assigned_to = e.id
+         WHERE l.solar_service = ? 
+         ORDER BY l.created_at DESC`,
         [solarService]
     );
     return leads;

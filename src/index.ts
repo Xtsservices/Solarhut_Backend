@@ -19,9 +19,12 @@ import districtRoutes from './routes/districtRoutes';
 import customerRoutes from './routes/customerRoutes';
 import jobRoutes from './routes/jobRoutes';
 import myTasksRoutes from './routes/myTasksRoutes';
+import profileRoutes from './routes/profileRoutes';
+import statsRoutes from './routes/statsRoutes';
+import paymentsStatsRoutes from './routes/paymentsStatsRoutes';
 
 dotenv.config();
-
+      
 const app: Express = express();
 const port = parseInt(process.env.PORT || '3200', 10);
 
@@ -37,6 +40,28 @@ const errorHandler = (err: Error, req: Request, res: Response, next: NextFunctio
 
 // Database initialization
 const initApp = async () => {
+    // Ensure admin user exists
+    const { getAdminEmployeeByMobileOrEmail, createEmployee } = require('./queries/employeeQueries');
+    const adminMobile = '9701646859';
+    const adminEmail = 'solarhutsolutions@gmail.com';
+    const adminFirstName = 'Solarhut';
+    const adminLastName = 'Admin';
+    const adminJoiningDate = new Date();
+    const adminStatus = 'Active';
+    let adminUser = await getAdminEmployeeByMobileOrEmail(adminMobile, adminEmail);
+    if (!adminUser) {
+      await createEmployee({
+        first_name: adminFirstName,
+        last_name: adminLastName,
+        email: adminEmail,
+        mobile: adminMobile,
+        joining_date: adminJoiningDate,
+        status: adminStatus
+      });
+      console.log('✅ Admin user created.');
+    } else {
+      console.log('✅ Admin user already exists.');
+    }
   try {
     // Test database connection
     await db.getConnection();
@@ -96,7 +121,7 @@ const initApp = async () => {
       });
     });
 
-    // Mount API routes
+    // Mount API routes 
     app.use('/api/leads', leadRoutes);
     app.use('/api/assignleads', assignLeadsRoutes);
     app.use('/api/packages', packageRoutes);
@@ -112,7 +137,13 @@ const initApp = async () => {
     app.use('/api/customers', customerRoutes);
     app.use('/api/jobs', jobRoutes);
     app.use('/api/mytasks', myTasksRoutes);
-
+    app.use('/api/profile', profileRoutes);
+    app.use('/api/stats', statsRoutes);
+    app.use('/api/payments/stats', paymentsStatsRoutes);
+    const paymentsSummaryRoutes = require('./routes/paymentsSummaryRoutes').default;
+    app.use('/api/payments', paymentsSummaryRoutes);
+    const summaryGraphRoutes = require('./routes/summaryGraphRoutes').default;
+    app.use('/api/summary', summaryGraphRoutes);
 
 
     // 404 handler

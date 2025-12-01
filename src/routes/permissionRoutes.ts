@@ -17,6 +17,33 @@ import {
 
 const router = Router();
 
+// Debug middleware to check body parsing
+router.use((req, res, next) => {
+    console.log(`Permission route - ${req.method} ${req.path}`);
+    console.log('Body parsed:', !!req.body);
+    console.log('Content-Type:', req.headers['content-type']);
+    
+    // Handle text/plain content-type for JSON data
+    if (req.headers['content-type'] === 'text/plain' && req.method !== 'GET') {
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk.toString();
+        });
+        req.on('end', () => {
+            try {
+                req.body = JSON.parse(body);
+                console.log('Parsed body from text/plain:', req.body);
+                next();
+            } catch (error) {
+                console.log('Failed to parse JSON from text/plain:', error);
+                next();
+            }
+        });
+    } else {
+        next();
+    }
+});
+
 // Apply authentication middleware to all routes
 router.use(authenticate);
 
