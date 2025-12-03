@@ -4,6 +4,7 @@ import * as otpQueries from '../queries/otpQueries';
 import * as permissionQueries from '../queries/permissionQueries';
 import { generateToken } from '../utils/authUtils';
 import { generateOTP, sendSMS, formatMobile } from '../utils/otpUtils';
+import { sendOTPSMS } from '../utils/smsUtils';
 import { TokenPayload } from '../interfaces/auth';
 
 export const requestOTP = async (req: Request, res: Response) => {
@@ -30,26 +31,41 @@ export const requestOTP = async (req: Request, res: Response) => {
 
         // Check if there's an active OTP
         const activeOTP = await otpQueries.getActiveOTP(formattedMobile);
-        if (activeOTP) {
-            return res.status(400).json({
-                success: false,
-                message: 'An OTP is already active. Please wait before requesting a new one.'
-            });
-        }
+        // if (activeOTP) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: 'An OTP is already active. Please wait before requesting a new one.'
+        //     });
+        // }
 
         // Generate and save new OTP
         // const otp = generateOTP();
         const otp = "123456";
         await otpQueries.createOTP(formattedMobile, otp);
 
-        // Send OTP via SMS
-        const message = `Your Solar Hut login OTP is: ${otp}. Valid for 3 minutes.`;
-        await sendSMS(formattedMobile, message);
-
-        res.json({
-            success: true,
-            message: 'OTP sent successfully. Valid for 3 minutes'
-        });
+        // Send OTP via SMS with user details
+        console.log(`Sending OTP to ${employee.first_name} ${employee.last_name} at ${formattedMobile}`);
+        try {
+            const smsResult = await sendOTPSMS(employee.first_name, employee.last_name, formattedMobile, otp);
+            console.log('SMS sent successfully:', smsResult);
+            
+            res.json({
+                success: true,
+                message: 'OTP sent successfully. Valid for 3 minutes',
+                debug: {
+                    mobile: formattedMobile,
+                    smsApiResponse: smsResult
+                }
+            });
+        } catch (smsError) {
+            console.error('SMS sending failed:', smsError);
+            // Still save OTP to database even if SMS fails for testing
+            res.json({
+                success: false,
+                message: 'OTP generated but SMS delivery failed. Please try again.',
+                error: smsError instanceof Error ? smsError.message : 'SMS delivery failed'
+            });
+        }
     } catch (error) {
         console.error('Error in requestOTP:', error);
         res.status(500).json({

@@ -147,8 +147,19 @@ export const updatePermission = async (req: Request, res: Response) => {
         const id = parseInt(req.params.id);
         if (!id) return res.status(400).json({ success: false, message: 'Invalid permission id' });
 
-        const { error, value } = permissionSchema.update.validate(req.body, { abortEarly: false });
+        console.log('Raw request details:');
+        console.log('- Content-Type:', req.headers['content-type']);
+        console.log('- Request method:', req.method);
+        console.log('- Request body:', req.body);
+        console.log('- Body type:', typeof req.body);
+        console.log('- Body keys:', req.body ? Object.keys(req.body) : 'none');
+        
+        const { error, value } = permissionSchema.update.validate(req.body, { abortEarly: false, allowUnknown: false });
+        
+        console.log('Validation result:', { error, value });
+        
         if (error) {
+            console.log('Validation errors:', error.details);
             return res.status(400).json({
                 success: false,
                 message: 'Validation error',
@@ -161,29 +172,112 @@ export const updatePermission = async (req: Request, res: Response) => {
             return res.status(401).json({ success: false, message: 'User information not found' });
         }
 
+        console.log('Update permission request:', { id, body: req.body, user: user.id });
+        console.log('Validation value:', value);
+
+        // Ensure validation passed and has valid data
+        if (!value || (Object.keys(value).length === 0)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'No valid data provided. Please provide either permissions array or status.' 
+            });
+        }
+
         // Check if permission exists
         const existingPermission = await permissionQueries.getPermissionById(id);
         if (!existingPermission) {
             return res.status(404).json({ success: false, message: 'Permission not found' });
         }
 
-        // Add updated_by to the updates
-        const updates = { ...value, updated_by: user.id };
+        console.log('Existing permission:', existingPermission);
 
-        const updated = await permissionQueries.updatePermission(id, updates);
-        if (!updated) {
-            return res.status(400).json({ success: false, message: 'Failed to update permission' });
+        // If permissions array is provided, update the entire role-feature permission set
+        if (value.permissions && Array.isArray(value.permissions)) {
+            try {
+                // Validate that role and feature still exist
+                const role = await roleQueries.getRoleById(existingPermission.role_id);
+                const feature = await featureQueries.getFeatureById(existingPermission.feature_id);
+                
+                if (!role) {
+                    return res.status(404).json({ success: false, message: 'Role not found' });
+                }
+                
+                if (!feature) {
+                    return res.status(404).json({ success: false, message: 'Feature not found' });
+                }
+
+                // Update permissions for the role-feature combination
+                const insertedIds = await permissionQueries.createRoleFeaturePermissions(
+                    existingPermission.role_id,
+                    existingPermission.feature_id,
+                    value.permissions,
+                    user.id
+                );
+
+                // Get updated permissions with details
+                const updatedPermissions = [];
+                for (const newId of insertedIds) {
+                    const permission = await permissionQueries.getPermissionById(newId);
+                    if (permission) updatedPermissions.push(permission);
+                }
+
+                return res.json({
+                    success: true,
+                    message: 'Permissions updated successfully',
+                    data: updatedPermissions
+                });
+            } catch (permError: any) {
+                console.error('Error updating permissions array:', permError);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error updating permissions',
+                    error: process.env.NODE_ENV === 'development' ? {
+                        message: permError?.message || 'Unknown error',
+                        stack: permError?.stack,
+                        code: permError?.code
+                    } : undefined
+                });
+            }
+        } 
+        
+        // If only status is being updated (legacy behavior)
+        if (value.status) {
+            try {
+                const updates = { status: value.status, updated_by: user.id };
+                const updated = await permissionQueries.updatePermission(id, updates);
+                
+                if (!updated) {
+                    return res.status(400).json({ success: false, message: 'Failed to update permission status' });
+                }
+
+                const permission = await permissionQueries.getPermissionById(id);
+                return res.json({ success: true, message: 'Permission status updated', data: permission });
+            } catch (statusError) {
+                console.error('Error updating permission status:', statusError);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error updating permission status',
+                    error: process.env.NODE_ENV === 'development' ? statusError : undefined
+                });
+            }
         }
 
-        const permission = await permissionQueries.getPermissionById(id);
-        res.json({ success: true, message: 'Permission updated', data: permission });
+        // If no valid updates provided
+        return res.status(400).json({ 
+            success: false, 
+            message: 'No valid updates provided. Please provide either permissions array or status.' 
+        });
 
-    } catch (err) {
+    } catch (err: any) {
         console.error('Error updating permission:', err);
         res.status(500).json({
             success: false,
             message: 'Error updating permission',
-            error: process.env.NODE_ENV === 'development' ? err : undefined
+            error: process.env.NODE_ENV === 'development' ? {
+                message: err?.message || 'Unknown error',
+                stack: err?.stack,
+                code: err?.code
+            } : undefined
         });
     }
 };
@@ -377,5 +471,5 @@ export default {
     listPermissions, 
     getPermissionsByRole, 
     getPermissionsByFeature,
-    checkPermission 
+    checkPermission
 };
