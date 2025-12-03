@@ -308,7 +308,7 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
         const leadId = parseInt(req.params.id);
         const { status } = req.body;
 
-    const validStatuses = ['New', 'Assigned', 'In Progress', 'Closed', 'Rejected'];
+    const validStatuses = ['New', 'Assigned', 'In Progress', 'Closed', 'Rejected', 'Complete', 'Cancelled'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({
                 success: false,

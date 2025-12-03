@@ -61,6 +61,8 @@ router.get('/solar/:solarService/property-types', getPropertyTypesForSolarServic
 // @desc    Update lead status
 // @access  Private
 router.patch('/:id/status', updateLeadStatus);
+router.put('/:id/status', updateLeadStatus);
+
 
 // @route   PATCH /api/leads/:id/assign
 // @desc    Assign lead to an employee (sets status to Assigned)

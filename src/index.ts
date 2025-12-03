@@ -112,6 +112,13 @@ const initApp = async () => {
     app.use('/api/customers', customerRoutes);
     app.use('/api/jobs', jobRoutes);
     app.use('/api/mytasks', myTasksRoutes);
+      // Mount new dashboard/statistics routes
+      const statsRoutes = require('./routes/statsRoutes').default;
+      const summaryGraphRoutes = require('./routes/summaryGraphRoutes').default;
+      const paymentsSummaryRoutes = require('./routes/paymentsSummaryRoutes').default;
+      app.use('/api/stats', statsRoutes);
+      app.use('/api/summary', summaryGraphRoutes);
+      app.use('/api/payments', paymentsSummaryRoutes);
 
 
 
