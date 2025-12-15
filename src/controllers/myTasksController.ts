@@ -439,7 +439,6 @@ const getMyJobsCounts = async (employeeId: number, connection?: PoolConnection) 
 export default {
     getMyTasks,
     getMyAllLeads,
-   
     getMyAllJobs,
    
 };
