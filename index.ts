@@ -1,27 +1,27 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
-import { db } from './db';
-import { initializeDatabase } from './schema';
-import { cleanupExpiredOTPs } from './queries/otpQueries';
-import leadRoutes from './routes/leadRoutes';
-import assignLeadsRoutes from './routes/assignLeadsRoutes';
-import authRoutes from './routes/authRoutes';
-import contactRoutes from './routes/contactRoutes';
-import employeeRoutes from './routes/employeeRoutes';
-import roleRoutes from './routes/roleRoutes';
-import packageRoutes from './routes/packageRoutes';
-import featureRoutes from './routes/featureRoutes';
-import permissionRoutes from './routes/permissionRoutes';
-import countryRoutes from './routes/countryRoutes';
-import stateRoutes from './routes/stateRoutes';
-import districtRoutes from './routes/districtRoutes';
-import customerRoutes from './routes/customerRoutes';
-import jobRoutes from './routes/jobRoutes';
-import myTasksRoutes from './routes/myTasksRoutes';
-import profileRoutes from './routes/profileRoutes';
-import statsRoutes from './routes/statsRoutes';
-import paymentsStatsRoutes from './routes/paymentsStatsRoutes';
+import { initializeDatabase } from './src/schema';
+import { cleanupExpiredOTPs } from './src/queries/otpQueries';
+import db from './src/db';
+import leadRoutes from './src/routes/leadRoutes';
+import assignLeadsRoutes from './src/routes/assignLeadsRoutes';
+import authRoutes from './src/routes/authRoutes';
+import contactRoutes from './src/routes/contactRoutes';
+import employeeRoutes from './src/routes/employeeRoutes';
+import roleRoutes from './src/routes/roleRoutes';
+import packageRoutes from './src/routes/packageRoutes';
+import featureRoutes from './src/routes/featureRoutes';
+import permissionRoutes from './src/routes/permissionRoutes';
+import countryRoutes from './src/routes/countryRoutes';
+import stateRoutes from './src/routes/stateRoutes';
+import districtRoutes from './src/routes/districtRoutes';
+import customerRoutes from './src/routes/customerRoutes';
+import jobRoutes from './src/routes/jobRoutes';
+import myTasksRoutes from './src/routes/myTasksRoutes';
+import profileRoutes from './src/routes/profileRoutes';
+import statsRoutes from './src/routes/statsRoutes';
+import paymentsStatsRoutes from './src/routes/paymentsStatsRoutes';
 const paymentsSummaryRoutes = require('./routes/paymentsSummaryRoutes').default;
 const summaryGraphRoutes = require('./routes/summaryGraphRoutes').default;
 
@@ -41,6 +41,17 @@ const errorHandler = (err: Error, req: Request, res: Response, next: NextFunctio
     message: 'Internal server error',
     error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
+};
+
+// Create Database connection and start server
+const createDbConnection = async () => {
+    try {
+        await db.getConnection();
+        console.log('✅ Successfully connected to MySQL database');
+    } catch (error) {
+        console.error('❌ Error connecting to MySQL database:', error);
+        process.exit(1);
+    }
 };
 
 // Database initialization
@@ -144,7 +155,7 @@ const initApp = async () => {
     app.use('/api/mytasks', myTasksRoutes);
     // Mount new dashboard/statistics routes
     app.use('/api/stats', statsRoutes);
-     
+    
     app.use('/api/profile', profileRoutes);
     app.use('/api/stats', statsRoutes);
     app.use('/api/payments/stats', paymentsStatsRoutes);
