@@ -3,8 +3,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const host = (process.env.DB_HOST || '127.0.0.1').trim();
-const user = (process.env.DB_USER || 'root').trim();
+const host = (process.env.DB_HOST || '').trim();
+const user = (process.env.DB_USER || '').trim();
 const password = (process.env.DB_PASSWORD || '').trim();
 const database = (process.env.DB_NAME || '').trim();
 const port = parseInt((process.env.DB_PORT || '3306').trim(), 10);

@@ -22,8 +22,8 @@ import myTasksRoutes from './src/routes/myTasksRoutes';
 import profileRoutes from './src/routes/profileRoutes';
 import statsRoutes from './src/routes/statsRoutes';
 import paymentsStatsRoutes from './src/routes/paymentsStatsRoutes';
-const paymentsSummaryRoutes = require('./routes/paymentsSummaryRoutes').default;
-const summaryGraphRoutes = require('./routes/summaryGraphRoutes').default;
+const paymentsSummaryRoutes = require('./src/routes/paymentsSummaryRoutes').default;
+const summaryGraphRoutes = require('./src/routes/summaryGraphRoutes').default;
 
 
 
@@ -57,7 +57,7 @@ const createDbConnection = async () => {
 // Database initialization
 const initApp = async () => {
     // Ensure admin user exists
-    const { getAdminEmployeeByMobileOrEmail, createEmployee } = require('./queries/employeeQueries');
+    const { getAdminEmployeeByMobileOrEmail, createEmployee } = require('./src/queries/employeeQueries');
     const adminMobile = '9701646859';
     const adminEmail = 'solarhutsolutions@gmail.com';
     const adminFirstName = 'Solarhut';
