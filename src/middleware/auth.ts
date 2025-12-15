@@ -23,11 +23,25 @@ export const authorizeRoles = (allowedRoles: string[]) => {
     return (req: Request, res: Response, next: NextFunction) => {
         const user = (res.locals as any).user;
         if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' });
-        console.log('User roles:', user);
+        
+        console.log('Authorization check:');
+        console.log('- User:', user);
+        console.log('- User roles:', user.roles);
+        console.log('- Required roles:', allowedRoles);
+        console.log('- Is roles array?', Array.isArray(user.roles));
 
         const hasRole = Array.isArray(user.roles) && user.roles.some((r: string) => allowedRoles.includes(r));
+        console.log('- Has required role?', hasRole);
+        
         if (!hasRole) {
-            return res.status(403).json({ success: false, message: 'Forbidden' });
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Forbidden',
+                debug: process.env.NODE_ENV === 'development' ? {
+                    userRoles: user.roles,
+                    requiredRoles: allowedRoles
+                } : undefined
+            });
         }
 
         next();

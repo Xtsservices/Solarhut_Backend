@@ -33,6 +33,22 @@ dotenv.config();
 const app: Express = express();
 const port = parseInt(process.env.PORT || '3200', 10);
 
+
+// CORS configuration - MUST be applied first
+app.use(cors({
+  origin: true, // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Range'],
+  maxAge: 86400, // 24 hours
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
+
+// Body parsing middleware
+app.use(express.json());
+
 // Error handling middleware
 const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Error:', err);
@@ -105,17 +121,6 @@ const initApp = async () => {
     } catch (error) {
       console.error('Error starting OTP cleanup:', error);
     }
-    
-    // CORS configuration
-    app.use(cors({
-      origin: true, // Allow all origins
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With'],
-      exposedHeaders: ['Content-Length', 'Content-Range'],
-      maxAge: 86400, // 24 hours
-      credentials: true
-    }));
-    app.use(express.json());
 
     // Welcome route
     app.get('/', (req: Request, res: Response) => {
