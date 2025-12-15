@@ -111,54 +111,7 @@ export const employeeSchema = {
     })
 };
 
-export const contactSchema = {
-    create: Joi.object({
-        full_name: Joi.string()
-            .min(2)
-            .max(100)
-            .required()
-            .messages({
-                'string.min': 'Full name must be at least 2 characters long',
-                'string.max': 'Full name cannot exceed 100 characters',
-                'string.empty': 'Full name is required',
-                'any.required': 'Full name is required'
-            }),
-        email: Joi.string()
-            .email()
-            .required()
-            .messages({
-                'string.email': 'Invalid email format',
-                'string.empty': 'Email is required',
-                'any.required': 'Email is required'
-            }),
-        mobile: Joi.string()
-            .pattern(/^(\+\d{7,15}|[6-9]\d{9})$/)
-            .required()
-            .messages({
-                'string.pattern.base': 'Invalid mobile number format. Use 10-digit Indian format or international format with country code',
-                'string.empty': 'Mobile number is required',
-                'any.required': 'Mobile number is required'
-            }),
-        reason: Joi.string()
-            .min(2)
-            .max(100)
-            .required()
-            .messages({
-                'string.min': 'Reason must be at least 2 characters long',
-                'string.max': 'Reason cannot exceed 100 characters',
-                'string.empty': 'Reason is required',
-                'any.required': 'Reason is required'
-            }),
-        message: Joi.string()
-            .min(10)
-            .max(500)
-            .optional()
-            .messages({
-                'string.min': 'Message must be at least 10 characters long',
-                'string.max': 'Message cannot exceed 500 characters'
-            })
-    })
-};
+
 
 export const authSchema = {
     requestOTP: Joi.object({
@@ -191,52 +144,7 @@ export const authSchema = {
     })
 };
 
-export const roleSchema = {
-    create: Joi.object({
-        role_name: Joi.string()
-            .min(2)
-            .max(100)
-            .required()
-            .trim()
-            .pattern(/^[A-Za-z\s]+$/)
-            .messages({
-                'string.empty': 'Role name is required',
-                'string.min': 'Role name must be at least 2 characters long',
-                'string.max': 'Role name cannot exceed 100 characters',
-                'string.pattern.base': 'Role name can only contain letters and spaces',
-                'any.required': 'Role name is required'
-            })
-    }),
-    update: Joi.object({
-        role_name: Joi.string()
-            .min(2)
-            .max(100)
-            .required()
-            .trim()
-            .pattern(/^[A-Za-z\s]+$/)
-            .messages({
-                'string.empty': 'Role name is required',
-                'string.min': 'Role name must be at least 2 characters long',
-                'string.max': 'Role name cannot exceed 100 characters',
-                'string.pattern.base': 'Role name can only contain letters and spaces',
-                'any.required': 'Role name is required'
-            })
-    }),
-    assign: Joi.object({
-        employeeId: Joi.number()
-            .required()
-            .messages({
-                'number.base': 'Employee ID must be a number',
-                'any.required': 'Employee ID is required'
-            }),
-        roleId: Joi.number()
-            .required()
-            .messages({
-                'number.base': 'Role ID must be a number',
-                'any.required': 'Role ID is required'
-            })
-    })
-};
+
 
 export const leadSchema = {
     create: Joi.object({
