@@ -466,7 +466,7 @@ CREATE TABLE IF NOT EXISTS estimations (
     pincode VARCHAR(10) NOT NULL,
     mobile VARCHAR(15) NOT NULL,
     product_description TEXT,
-    requested_watts VARCHAR(50),
+    requested_watts TEXT,
     gst DECIMAL(5,2) DEFAULT 18.00,
     amount DECIMAL(12,2) NOT NULL,
     created_by INT,

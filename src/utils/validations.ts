@@ -1,5 +1,29 @@
 import Joi from 'joi';
 
+export const estimationSchema = Joi.object({
+    customer_name: Joi.string().max(200).required(),
+    door_no: Joi.string().max(50).required(),
+    area: Joi.string().max(100).required(),
+    city: Joi.string().max(100).required(),
+    district: Joi.string().max(100).required(),
+    state: Joi.string().max(100).required(),
+    pincode: Joi.string().pattern(/^\d{6}$/).required().messages({
+        'string.pattern.base': 'Pincode must be a 6 digit number.'
+    }),
+    mobile: Joi.string().pattern(/^\d{10,15}$/).required().messages({
+        'string.pattern.base': 'Mobile must be 10-15 digits.'
+    }),
+    product_description: Joi.string().allow('', null),
+    requested_watts: Joi.string().allow('', null),
+    gst: Joi.number().min(0).max(100).default(18),
+    amount: Joi.number().min(0).required(),
+    created_by: Joi.number().integer().allow(null),
+    updated_by: Joi.number().integer().allow(null),
+    status: Joi.string().valid('Active', 'Inactive').default('Active'),
+    // created_at, updated_at are handled by DB
+});
+
+
 export const employeeSchema = {
     create: Joi.object({
         first_name: Joi.string()
