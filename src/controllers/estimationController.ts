@@ -175,10 +175,13 @@ export const deleteEstimation = async (req: Request, res: Response) => {
     }
 };
 
+
+
 export const downloadEstimationPDF = async (req: Request, res: Response) => {
     try {
         const id = parseInt(req.params.id);
         const estimation = await estimationQueries.getEstimationById(id);
+        
         if (!estimation) {
             return res.status(404).json({
                 success: false,
@@ -201,9 +204,11 @@ export const downloadEstimationPDF = async (req: Request, res: Response) => {
         // Set response headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=estimation-${estimation.id}.pdf`);
-
-        // Send the PDF buffer as response
-        res.send(pdfBuffer);
+        
+        // Pipe the PDF to response
+        doc.pipe(res);
+        doc.end();
+        
     } catch (error) {
         console.error('Error generating PDF:', error);
         res.status(500).json({
@@ -213,3 +218,4 @@ export const downloadEstimationPDF = async (req: Request, res: Response) => {
         });
     }
 };
+
