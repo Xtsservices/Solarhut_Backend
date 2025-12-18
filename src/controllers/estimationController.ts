@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import * as estimationQueries from '../queries/estimationQueries';
+ // Import PDF generator and employee queries
+        const { generateEstimationPDF } = require('../utils/pdfgenerate');
+        const employeeQueries = require('../queries/employeeQueries');
 
 export const createEstimation = async (req: Request, res: Response) => {
     try {
@@ -174,11 +177,17 @@ export const downloadEstimationPDF = async (req: Request, res: Response) => {
             });
         }
 
-        // Import PDF generator
-        const { generateEstimationPDF } = require('../utils/pdfgenerate');
+       
         
-        // Generate PDF
-        const doc = generateEstimationPDF(estimation);
+        // Fetch employee data if created_by exists
+        let employee: any = null;
+        if (estimation.created_by) {
+            employee = await employeeQueries.getEmployeeById(estimation.created_by);
+        }
+        
+      
+        // Generate PDF with employee data
+        const doc = generateEstimationPDF(estimation, employee);
         
         // Set response headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
