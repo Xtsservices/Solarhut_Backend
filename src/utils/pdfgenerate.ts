@@ -239,7 +239,8 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
     doc.fontSize(18)
         .font('Helvetica-Bold')
         .fillColor('#FF6B00')
-        .text(`${requestedKW} KW Solar Proposal`, 130, 430);
+        .text(`${requestedKW} || Solar Proposal`, 130, 430);
+
     
     // Prepared For and Prepared By sections at bottom of page 1
     const preparedByName = employee ? `${employee.first_name || ''} ${employee.last_name || ''}`.trim() : 'Solar Hut Solutions';
