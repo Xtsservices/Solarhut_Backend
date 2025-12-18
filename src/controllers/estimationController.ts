@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import * as estimationQueries from '../queries/estimationQueries';
+ // Import PDF generator and employee queries
+        const { generateEstimationPDF } = require('../utils/pdfgenerate');
+        const employeeQueries = require('../queries/employeeQueries');
 import { estimationSchema } from '../utils/validations';
 
 export const createEstimation = async (req: Request, res: Response) => {
@@ -183,25 +186,18 @@ export const downloadEstimationPDF = async (req: Request, res: Response) => {
             });
         }
 
-        // Import PDF generator
-        const { generateEstimationPDF } = require('../utils/pdfgenerate');
-
-        // Generate PDF
-        const doc = generateEstimationPDF(estimation);
-
-        // Collect PDF into a buffer
-        const streamBuffers = require('stream-buffers');
-        const writableStreamBuffer = new streamBuffers.WritableStreamBuffer({
-            initialSize: 1024 * 1024, // 1MB
-            incrementAmount: 1024 * 1024 // 1MB
-        });
-        doc.pipe(writableStreamBuffer);
-        doc.end();
-
-        // Wait for the PDF to finish writing
-        await new Promise((resolve) => writableStreamBuffer.on('finish', resolve));
-        const pdfBuffer = writableStreamBuffer.getContents();
-
+       
+        
+        // Fetch employee data if created_by exists
+        let employee: any = null;
+        if (estimation.created_by) {
+            employee = await employeeQueries.getEmployeeById(estimation.created_by);
+        }
+        
+      
+        // Generate PDF with employee data
+        const doc = generateEstimationPDF(estimation, employee);
+        
         // Set response headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=estimation-${estimation.id}.pdf`);
