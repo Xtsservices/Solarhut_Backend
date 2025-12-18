@@ -264,18 +264,19 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         .text(`${estimation.district}, ${estimation.state} - ${estimation.pincode}`, 60, footerY + 63, { width: 350 });
     
     // Prepared By Section (right side) - no background
-    doc.fontSize(13)
-        .font('Helvetica-Bold')
-        .fillColor('#FFFFFF')
-        .text('Prepared By:', 320, footerY);
-    
-    doc.fontSize(11)
-        .font('Helvetica')
-        .fillColor('#FFFFFF')
-        .text(`Name: ${preparedByName}`, 320, footerY + 18, { width: 250 })
-        .text(`Mobile: ${preparedByMobile}`, 320, footerY + 33, { width: 250 })
-        .text('Solar Hut Solutions LLP', 320, footerY + 48, { width: 250 })
-        .text('Vijayawada, Andhra Pradesh', 320, footerY + 63, { width: 250 });
+        // Prepared By Section (right side) - moved further right for more space
+        const preparedByX = 400; // Increased from 320 to 400 for more space
+        doc.fontSize(13)
+            .font('Helvetica-Bold')
+            .fillColor('#FFFFFF')
+            .text('Prepared By:', preparedByX, footerY);
+        doc.fontSize(11)
+            .font('Helvetica')
+            .fillColor('#FFFFFF')
+            .text(`Name: ${preparedByName}`, preparedByX, footerY + 18, { width: 250 })
+            .text(`Mobile: ${preparedByMobile}`, preparedByX, footerY + 33, { width: 250 })
+            .text('Solar Hut Solutions LLP', preparedByX, footerY + 48, { width: 250 })
+            .text('Vijayawada, Andhra Pradesh', preparedByX, footerY + 63, { width: 250 });
     
     // Add new page and header starting from page 2
     doc.addPage();
