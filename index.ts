@@ -22,6 +22,7 @@ import myTasksRoutes from './src/routes/myTasksRoutes';
 import profileRoutes from './src/routes/profileRoutes';
 import statsRoutes from './src/routes/statsRoutes';
 import paymentsStatsRoutes from './src/routes/paymentsStatsRoutes';
+import estimationRoutes from './src/routes/estimationRoutes';
 const paymentsSummaryRoutes = require('./src/routes/paymentsSummaryRoutes').default;
 const summaryGraphRoutes = require('./src/routes/summaryGraphRoutes').default;
 
@@ -158,6 +159,7 @@ const initApp = async () => {
     app.use('/api/customers', customerRoutes);
     app.use('/api/jobs', jobRoutes);
     app.use('/api/mytasks', myTasksRoutes);
+    app.use('/api/estimations', estimationRoutes);
     // Mount new dashboard/statistics routes
     app.use('/api/stats', statsRoutes);
     
