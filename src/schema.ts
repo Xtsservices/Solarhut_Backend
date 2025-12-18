@@ -454,6 +454,38 @@ CREATE TABLE IF NOT EXISTS job_locations (
 )
 `;
 
+const createEstimationsTable = `
+CREATE TABLE IF NOT EXISTS estimations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_name VARCHAR(200) NOT NULL,
+    door_no VARCHAR(50) NOT NULL,
+    area VARCHAR(100) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    district VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    pincode VARCHAR(10) NOT NULL,
+    mobile VARCHAR(15) NOT NULL,
+    product_description TEXT,
+    requested_watts VARCHAR(50),
+    gst DECIMAL(5,2) DEFAULT 18.00,
+    amount DECIMAL(12,2) NOT NULL,
+    created_by INT,
+    updated_by INT,
+    status ENUM('Active','Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_customer_name (customer_name),
+    INDEX idx_mobile (mobile),
+    INDEX idx_district (district),
+    INDEX idx_state (state),
+    INDEX idx_pincode (pincode),
+    INDEX idx_status (status),
+    INDEX idx_created_by (created_by),
+    INDEX idx_updated_by (updated_by),
+    INDEX idx_created_at (created_at)
+)
+`;
+
 const insertDefaultRoles = async () => {
   const defaultRoles = [
     "Admin",
@@ -786,6 +818,7 @@ export const initializeDatabase = async () => {
     await db.execute(createJobStatusTrackingTable);
     await db.execute(createJobPaymentsTable);
     await db.execute(createJobLocationsTable);
+    await db.execute(createEstimationsTable);
 
     // Run migrations for existing tables
     await migrateJobAssignmentsTable();
