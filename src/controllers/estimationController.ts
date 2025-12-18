@@ -1,19 +1,29 @@
 import { Request, Response } from 'express';
 import * as estimationQueries from '../queries/estimationQueries';
+import { estimationSchema } from '../utils/validations';
 
 export const createEstimation = async (req: Request, res: Response) => {
     try {
         // Public endpoint - created_by is optional (customer submissions)
-        const userId =res.locals?.user?.id;
+        const userId = res.locals?.user?.id;
 
-        const estimationData = {
+        // Validate request body
+        const { error, value } = estimationSchema.validate({
             ...req.body,
             created_by: userId || null
-        };
+        }, { abortEarly: false });
 
-        const estimationId = await estimationQueries.createEstimation(estimationData);
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                errors: error.details.map((d) => d.message)
+            });
+        }
+
+        const estimationId = await estimationQueries.createEstimation(value);
         const estimation = await estimationQueries.getEstimationById(estimationId);
-        
+
         res.status(201).json({
             success: true,
             message: 'Estimation created successfully',
@@ -21,7 +31,7 @@ export const createEstimation = async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         console.error('Error creating estimation:', error);
-        
+
         res.status(500).json({
             success: false,
             message: 'Error creating estimation',
@@ -166,7 +176,6 @@ export const downloadEstimationPDF = async (req: Request, res: Response) => {
     try {
         const id = parseInt(req.params.id);
         const estimation = await estimationQueries.getEstimationById(id);
-        
         if (!estimation) {
             return res.status(404).json({
                 success: false,
@@ -176,18 +185,29 @@ export const downloadEstimationPDF = async (req: Request, res: Response) => {
 
         // Import PDF generator
         const { generateEstimationPDF } = require('../utils/pdfgenerate');
-        
+
         // Generate PDF
         const doc = generateEstimationPDF(estimation);
-        
+
+        // Collect PDF into a buffer
+        const streamBuffers = require('stream-buffers');
+        const writableStreamBuffer = new streamBuffers.WritableStreamBuffer({
+            initialSize: 1024 * 1024, // 1MB
+            incrementAmount: 1024 * 1024 // 1MB
+        });
+        doc.pipe(writableStreamBuffer);
+        doc.end();
+
+        // Wait for the PDF to finish writing
+        await new Promise((resolve) => writableStreamBuffer.on('finish', resolve));
+        const pdfBuffer = writableStreamBuffer.getContents();
+
         // Set response headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=estimation-${estimation.id}.pdf`);
-        
-        // Pipe the PDF to response
-        doc.pipe(res);
-        doc.end();
-        
+
+        // Send the PDF buffer as response
+        res.send(pdfBuffer);
     } catch (error) {
         console.error('Error generating PDF:', error);
         res.status(500).json({

@@ -26,9 +26,6 @@ import estimationRoutes from './src/routes/estimationRoutes';
 const paymentsSummaryRoutes = require('./src/routes/paymentsSummaryRoutes').default;
 const summaryGraphRoutes = require('./src/routes/summaryGraphRoutes').default;
 
-
-
-
 dotenv.config();
       
 const app: Express = express();
