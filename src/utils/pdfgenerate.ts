@@ -260,7 +260,7 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         .fillColor('#FFFFFF')
         .text(`Name: ${estimation.customer_name}`, 60, footerY + 18, { width: 250 })
         .text(`Mobile: ${estimation.mobile}`, 60, footerY + 33, { width: 250 })
-        .text(`Address: ${estimation.door_no}, ${estimation.area}, ${estimation.city}`, 60, footerY + 48, { width: 250 })
+        .text(`Address: ${estimation.door_no}, ${estimation.area}, ${estimation.city}`, 60, footerY + 48, { width: 350 })
         .text(`${estimation.district}, ${estimation.state} - ${estimation.pincode}`, 60, footerY + 63, { width: 250 });
     
     // Prepared By Section (right side) - no background
