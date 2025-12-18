@@ -12,5 +12,6 @@ export const allFeatures =[
   "Settings",
   "Profile",
   "Jobs",
-  "My_Tasks"
+  "My_Tasks",
+  "Estimations",
 ];
