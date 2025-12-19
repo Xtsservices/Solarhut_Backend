@@ -286,7 +286,7 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
     // Add dynamic data overlay on page 1
     const estimateNumber = `SHS25-${String(estimation.id).padStart(6, '0')}`;
     const estimateDate = new Date(estimation.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    const requestedKW = estimation.requested_watts;
+    const requestedKW = estimation.product_description;
     
     // Extract KW value from product_description (e.g., "Vikram Solar Panels 550 W (3KW)" -> "3KW")
     let systemSize = requestedKW || '';
@@ -347,60 +347,60 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
     doc.rect(0, 470, pageWidth, 3).fill('#FF6B00');
     
     // Positioned at bottom of page 1
-    const footerY = 495;
+    const footerY = 515;
     
     // Prepared For Section (left side)
-    doc.fontSize(12)
+    doc.fontSize(14)
         .font('Helvetica-Bold')
         .fillColor('#FF6B00')
         .text('Prepared For', 60, footerY);
     
     doc.strokeColor('#FF6B00')
         .lineWidth(2)
-        .moveTo(60, footerY + 16)
-        .lineTo(150, footerY + 16)
+        .moveTo(60, footerY + 18)
+        .lineTo(160, footerY + 18)
         .stroke();
     
-    doc.fontSize(11)
+    doc.fontSize(13)
         .font('Helvetica-Bold')
         .fillColor('#333333')
-        .text(toTitleCase(estimation.customer_name), 60, footerY + 28, { width: 220 });
+        .text(toTitleCase(estimation.customer_name), 60, footerY + 32, { width: 220 });
     
-    doc.fontSize(10)
+    doc.fontSize(12)
         .font('Helvetica')
         .fillColor('#666666')
-        .text(`Mobile: ${estimation.mobile}`, 60, footerY + 46, { width: 220 })
-        .text(`${toTitleCase(estimation.door_no)}, ${toTitleCase(estimation.area)}`, 60, footerY + 60, { width: 220 })
-        .text(`${toTitleCase(estimation.city)}, ${toTitleCase(estimation.district)}`, 60, footerY + 74, { width: 220 })
-        .text(`${toTitleCase(estimation.state)} - ${estimation.pincode}`, 60, footerY + 88, { width: 220 });
+        .text(`Mobile: ${estimation.mobile}`, 60, footerY + 52, { width: 220 })
+        .text(`${toTitleCase(estimation.door_no)}, ${toTitleCase(estimation.area)}`, 60, footerY + 68, { width: 220 })
+        .text(`${toTitleCase(estimation.city)}, ${toTitleCase(estimation.district)}`, 60, footerY + 84, { width: 220 })
+        .text(`${toTitleCase(estimation.state)} - ${estimation.pincode}`, 60, footerY + 100, { width: 220 });
     
     // Prepared By Section (right side)
     const preparedByX = pageWidth / 2 + 30;
-    doc.fontSize(12)
+    doc.fontSize(14)
         .font('Helvetica-Bold')
         .fillColor('#FF6B00')
         .text('Prepared By', preparedByX, footerY);
     
     doc.strokeColor('#FF6B00')
         .lineWidth(2)
-        .moveTo(preparedByX, footerY + 16)
-        .lineTo(preparedByX + 90, footerY + 16)
+        .moveTo(preparedByX, footerY + 18)
+        .lineTo(preparedByX + 100, footerY + 18)
         .stroke();
     
-    doc.fontSize(11)
+    doc.fontSize(13)
         .font('Helvetica-Bold')
         .fillColor('#333333')
-        .text(toTitleCase(preparedByName), preparedByX, footerY + 28, { width: 220 });
+        .text(toTitleCase(preparedByName), preparedByX, footerY + 32, { width: 220 });
     
-    doc.fontSize(10)
+    doc.fontSize(12)
         .font('Helvetica')
         .fillColor('#666666')
-        .text('Office: 9966177225', preparedByX, footerY + 46, { width: 220 })
-        .text('Operations: 9848992333', preparedByX, footerY + 60, { width: 220 })
-        .text('Solar Hut Solutions LLP', preparedByX, footerY + 74, { width: 220 })
-        .text('Vijayawada, Andhra Pradesh', preparedByX, footerY + 88, { width: 220 })
+        .text('Office: 9966177225', preparedByX, footerY + 52, { width: 220 })
+        .text('Operations: 9848992333', preparedByX, footerY + 68, { width: 220 })
+        .text('Solar Hut Solutions LLP', preparedByX, footerY + 84, { width: 220 })
+        .text('Vijayawada, Andhra Pradesh', preparedByX, footerY + 100, { width: 220 })
         .fillColor('#333333')
-        .text('www.solarhutsolutions.in', preparedByX, footerY + 102, { width: 220, link: 'http://solarhutsolutions.in/' });
+        .text('www.solarhutsolutions.in', preparedByX, footerY + 116, { width: 220, link: 'http://solarhutsolutions.in/' });
     
     // Add new page and header starting from page 2
     doc.addPage();
@@ -489,7 +489,7 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         .fillColor('#000000')
         .text('Note: ', 50, doc.y, { continued: true })
         .font('Helvetica-Bold')
-        .text(`Quote for Installation of ${requestedKW}KW RTS plant for Client including Civil Work.`, { width: 495 })
+        .text(`Quote for Installation of ${estimation.product_description} RTS plant for Client including Civil Work.`, { width: 495 })
         .moveDown(0.8);
     
     // Table width expanded to full page width (2 columns only - no GST column)
@@ -670,6 +670,15 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         .moveTo(50, bankDetailsY + 14)
         .lineTo(210, bankDetailsY + 14)
         .stroke();
+    
+    // Add QR code image beside Bank Details heading
+    try {
+        doc.image(require('path').join(__dirname, '../assets/solarpaymentqrcode.jpg'), 380, bankDetailsY - 10, { width: 120 });
+    } catch (e) {
+        // QR code image not found, continue without it
+        console.log('QR code image not found');
+    }
+    
     doc.moveDown(1);
     
     doc.fontSize(10)
@@ -745,6 +754,8 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         .lineTo(245, warrantyY + 14)
         .stroke();
     doc.moveDown(0.8);
+
+
     
     // Product Warranty Details Table
     const prodWarrantyY = doc.y;
@@ -1069,19 +1080,19 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         .fillColor('#333333')
         .text('www.solarhutsolutions.in', 50, doc.y, { link: 'http://solarhutsolutions.in/' });
     
-    // Add company stamp beside Regards section
+    // Add company stamp beside Regards section (side by side)
     try {
-        doc.image(require('path').join(__dirname, '../assets/stamp.png'), 350, regardsY - 10, { width: 100 });
+        doc.image(require('path').join(__dirname, '../assets/solarhutstamp.jpeg'), 380, regardsY - 20, { width: 100 });
     } catch (e) {
         // Fallback: Draw a simple stamp circle if image not found
         doc.save();
-        doc.circle(400, regardsY + 35, 45).stroke('#333333');
-        doc.circle(400, regardsY + 35, 40).stroke('#333333');
+        doc.circle(430, regardsY + 20, 45).stroke('#333333');
+        doc.circle(430, regardsY + 20, 40).stroke('#333333');
         doc.fontSize(8)
             .font('Helvetica-Bold')
             .fillColor('#333333')
-            .text('SOLAR HUT SOLUTIONS LLP', 355, regardsY + 15, { width: 90, align: 'center' })
-            .text('VIJAYAWADA', 355, regardsY + 45, { width: 90, align: 'center' });
+            .text('SOLAR HUT SOLUTIONS LLP', 385, regardsY + 5, { width: 90, align: 'center' })
+            .text('VIJAYAWADA', 385, regardsY + 30, { width: 90, align: 'center' });
         doc.restore();
     }
     
