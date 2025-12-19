@@ -11,6 +11,7 @@ export interface Estimation extends RowDataPacket {
     state: string;
     pincode: string;
     mobile: string;
+    structure?: string;
     product_description?: string;
     requested_watts?: string;
     gst: number;
@@ -31,6 +32,7 @@ export interface CreateEstimationData {
     state: string;
     pincode: string;
     mobile: string;
+    structure?: string;
     product_description?: string;
     requested_watts?: string;
     gst?: number;
@@ -43,8 +45,8 @@ export const createEstimation = async (estimationData: CreateEstimationData) => 
     const [result] = await db.execute<ResultSetHeader>(
         `INSERT INTO estimations 
         (customer_name, door_no, area, city, district, state, pincode, mobile, 
-         product_description, requested_watts, gst, amount, created_by, updated_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         structure, product_description, requested_watts, gst, amount, created_by, updated_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             estimationData.customer_name ?? null,
             estimationData.door_no ?? null,
@@ -54,6 +56,7 @@ export const createEstimation = async (estimationData: CreateEstimationData) => 
             estimationData.state ?? null,
             estimationData.pincode ?? null,
             estimationData.mobile ?? null,
+            estimationData.structure ?? null,
             estimationData.product_description ?? null,
             estimationData.requested_watts ?? null,
             estimationData.gst ?? 18.00,

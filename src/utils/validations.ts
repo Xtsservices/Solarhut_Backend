@@ -13,6 +13,7 @@ export const estimationSchema = Joi.object({
     mobile: Joi.string().pattern(/^\d{10,15}$/).required().messages({
         'string.pattern.base': 'Mobile must be 10-15 digits.'
     }),
+    structure: Joi.string().max(100).allow('', null),
     product_description: Joi.string().allow('', null),
     requested_watts: Joi.string().allow('', null),
     gst: Joi.number().min(0).max(100).default(18),

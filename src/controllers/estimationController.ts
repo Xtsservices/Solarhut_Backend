@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
 import * as estimationQueries from '../queries/estimationQueries';
- // Import PDF generator and employee queries
-        const { generateEstimationPDF } = require('../utils/pdfgenerate');
-        const employeeQueries = require('../queries/employeeQueries');
+// Import PDF generator and employee queries
+const { generateEstimationPDF } = require('../utils/pdfgenerate');
+const employeeQueries = require('../queries/employeeQueries');
 import { estimationSchema } from '../utils/validations';
 
 export const createEstimation = async (req: Request, res: Response) => {
     try {
         // Public endpoint - created_by is optional (customer submissions)
+        console.log('Res Locals:', req.body);
         const userId = res.locals?.user?.id;
 
         // Validate request body
@@ -47,19 +48,19 @@ export const getAllEstimations = async (req: Request, res: Response) => {
     try {
         const { status, state, district } = req.query;
         const filters: any = {};
-        
+
         if (status && typeof status === 'string') {
             filters.status = status;
         }
-        
+
         if (state && typeof state === 'string') {
             filters.state = state;
         }
-        
+
         if (district && typeof district === 'string') {
             filters.district = district;
         }
-        
+
         const estimations = await estimationQueries.getAllEstimations(filters);
         res.json({
             success: true,
@@ -123,16 +124,16 @@ export const updateEstimation = async (req: Request, res: Response) => {
         const id = parseInt(req.params.id);
         const user = (res.locals as any).user;
         const updatedBy = user?.employee_id || req.body.updated_by || null;
-        
+
         const updated = await estimationQueries.updateEstimation(id, req.body, updatedBy);
-        
+
         if (!updated) {
             return res.status(404).json({
                 success: false,
                 message: 'Estimation not found'
             });
         }
-        
+
         const estimation = await estimationQueries.getEstimationById(id);
         res.json({
             success: true,
@@ -153,14 +154,14 @@ export const deleteEstimation = async (req: Request, res: Response) => {
     try {
         const id = parseInt(req.params.id);
         const deleted = await estimationQueries.deleteEstimation(id);
-        
+
         if (!deleted) {
             return res.status(404).json({
                 success: false,
                 message: 'Estimation not found'
             });
         }
-        
+
         res.json({
             success: true,
             message: 'Estimation deleted successfully'
@@ -181,7 +182,7 @@ export const downloadEstimationPDF = async (req: Request, res: Response) => {
     try {
         const id = parseInt(req.params.id);
         const estimation = await estimationQueries.getEstimationById(id);
-        
+
         if (!estimation) {
             return res.status(404).json({
                 success: false,
@@ -189,26 +190,26 @@ export const downloadEstimationPDF = async (req: Request, res: Response) => {
             });
         }
 
-       
-        
+
+
         // Fetch employee data if created_by exists
         let employee: any = null;
         if (estimation.created_by) {
             employee = await employeeQueries.getEmployeeById(estimation.created_by);
         }
-        
-      
+
+
         // Generate PDF with employee data
         const doc = generateEstimationPDF(estimation, employee);
-        
+
         // Set response headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=estimation-${estimation.id}.pdf`);
-        
+
         // Pipe the PDF to response
         doc.pipe(res);
         doc.end();
-        
+
     } catch (error) {
         console.error('Error generating PDF:', error);
         res.status(500).json({
