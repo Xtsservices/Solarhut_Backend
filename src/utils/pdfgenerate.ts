@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { Estimation } from '../queries/estimationQueries';
+import { COMPANY_DETAILS, BANK_DETAILS, UPI_DETAILS } from './bankDetails';
 
 type PDFDocumentType = InstanceType<typeof PDFDocument>;
 
@@ -9,30 +10,32 @@ const PRODUCT_LIST = [
     'Jindal Structure for the 3 KW Roof Top Solar Plant',
     'GroWatt 3KW TL-X2 (Pro) Solar Invertor- 1',
     'Civil Work for the Roof Top Solar Plant (Includes labor and material)',
-    'Havells SC 4.0 SQMM Solar DC Cable (RED) 20 meters',
-    'Havells SC 4.0 SQMM Solar DC Cable (BLACK) 20 meters',
-    'Havells SC 4.0 SQMM FRLS (GREEN) 90 meters',
-    'Havells 2 Core 4.0 SQMM AC Cable 33 meters',
-    'ACDB & DCBD 1KW – 3 KW',
-    'MC 4 Connectors – 2',
-    'Earthing Cover 200 MM – 3',
-    'Earthing Electrodes CB 17.2 MM, Dia 3 feet – 3',
-    'Earthing Chemical Bag 25 Kgs – 1',
-    'Lightning Arrestor CB W/Insulator – 1',
-    'PVC Pipes 1" Inch – 200 Feet',
-    'PVC Long L Bends – 10',
-    'PVC Short L Bends – 10',
-    'PVC T Bends – 10',
+    'Havells SC 4.0 SQMM Solar DC Cable (RED)',
+    'Havells SC 4.0 SQMM Solar DC Cable (BLACK) ',
+    'Havells SC 4.0 SQMM FRLS (GREEN)',
+    'Havells 2 Core 4.0 SQMM AC Cable ',
+    'ACDB & DCBD 1KW –',
+    'MC 4 Connectors ',
+    'Earthing Cover 200 MM ',
+    'Earthing Electrodes CB 17.2 MM, Dia 3 feet',
+    'Earthing Chemical Bag 25 Kgs',
+    'Lightning Arrestor CB W/Insulator',
+    'PVC Pipes 1" Inch ',
+    'PVC Long L Bends ',
+    'PVC Short L Bends',
+    'PVC T Bends',
     'Cable Ties 1 Pack (100 No)',
-    'Lugs Rings & Pins – 10 each',
-    'PVC Insulation Tapes -2',
-    'C-Clamps 1 "Inch – 1 Pack',
-    'Wood Gattis -1 Pack',
-    'Flexible Pipe 1 "Inch – 5 Meters',
-    'Anchor Bolts 12*100 – 16 Pieces',
-    'SS Bolts 6*25 – 26 Pieces',
-    'SS Bolts 12*30 – 16 Pieces'
+    'Lugs Rings & Pins ',
+    'PVC Insulation Tapes',
+    'C-Clamps 1 "Inch ',
+    'Wood Gattis',
+    'Flexible Pipe 1 "Inch ',
+    'Anchor Bolts 12*100 ',
+    'SS Bolts 6*25 ',
+    'SS Bolts 12*30'
 ];
+
+const PRODUCT_LIST_COLOR = '#FF0000'; // Red color for product list
 
 const addWatermark = (doc: PDFDocumentType) => {
     doc.save();
@@ -74,11 +77,13 @@ const addHeader = (doc: PDFDocumentType, pageNumber: number, estimation: Estimat
     const companyY = topY + 20;
     doc.fontSize(9)
         .fillColor('#333333')
-        .font('Helvetica')
-        .text('GSTIN: 37AAKFS9782N1Z7', 350, companyY, { align: 'right', width: 195 })
-        .text('40-15-25/4, Labbipet', 350, companyY + 12, { align: 'right', width: 195 })
-        .text('Vijayawada, Andhra Pradesh - 520010', 350, companyY + 24, { align: 'right', width: 195 })
-        .text('Mobile: +91-9848992333', 350, companyY + 36, { align: 'right', width: 195 });
+        .font('Helvetica-Bold')
+        .text(`GSTIN: ${COMPANY_DETAILS.gstin}`, 350, companyY, { align: 'right', width: 195 })
+        .text(`Door No: ${COMPANY_DETAILS.doorNo}`, 350, companyY + 12, { align: 'right', width: 195 })
+        .text(COMPANY_DETAILS.street1, 350, companyY + 24, { align: 'right', width: 195 })
+        .text(COMPANY_DETAILS.street2, 350, companyY + 36, { align: 'right', width: 195 })
+        .text(COMPANY_DETAILS.cityState, 350, companyY + 48, { align: 'right', width: 195 })
+        .text(`Mobile: ${COMPANY_DETAILS.mobile}`, 350, companyY + 60, { align: 'right', width: 195 });
     // Horizontal line
     doc.strokeColor('#FF6B00')
         .lineWidth(2)
@@ -89,7 +94,7 @@ const addHeader = (doc: PDFDocumentType, pageNumber: number, estimation: Estimat
     if (pageNumber === 1) {
         const tableY = logoBottom + 10;
         const estimateNumber = `SHS25${String(estimation.id).padStart(6, '0')}`;
-        const estimateDate = new Date(estimation.created_at).toLocaleDateString('en-GB');
+        const estimateDate = new Date(estimation.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
         doc.rect(50, tableY, 140, 25).fillAndStroke('#F5F5F5', '#888888');
         doc.rect(190, tableY, 140, 25).fillAndStroke('#F5F5F5', '#888888');
         doc.rect(330, tableY, 215, 25).fillAndStroke('#F5F5F5', '#888888');
@@ -214,69 +219,165 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
     
     addWatermark(doc);
     
-    // Page 1: Background image with dynamic data
+    // Page 1: Cover Page with Clean Design and Visible Solar Panels
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+    
+    // Clean white/light cream background
+    doc.rect(0, 0, pageWidth, pageHeight).fill('#FFFFFF');
+    
+    // Draw visible solar panel grid pattern (bottom section)
+    doc.save();
+    doc.opacity(0.25);
+    const panelWidth = 70;
+    const panelHeight = 45;
+    const startY = pageHeight * 0.50;
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 10; col++) {
+            const x = col * panelWidth - 30;
+            const y = startY + row * panelHeight;
+            // Panel background (dark blue like real solar panels)
+            doc.rect(x, y, panelWidth - 3, panelHeight - 3).fill('#1a237e');
+            // Panel grid lines (silver/metallic look)
+            doc.strokeColor('#4a5568').lineWidth(1);
+            // Vertical lines
+            doc.moveTo(x + panelWidth / 4, y).lineTo(x + panelWidth / 4, y + panelHeight - 3).stroke();
+            doc.moveTo(x + panelWidth / 2, y).lineTo(x + panelWidth / 2, y + panelHeight - 3).stroke();
+            doc.moveTo(x + (3 * panelWidth) / 4, y).lineTo(x + (3 * panelWidth) / 4, y + panelHeight - 3).stroke();
+            // Horizontal lines
+            doc.moveTo(x, y + panelHeight / 3).lineTo(x + panelWidth - 3, y + panelHeight / 3).stroke();
+            doc.moveTo(x, y + (2 * panelHeight) / 3).lineTo(x + panelWidth - 3, y + (2 * panelHeight) / 3).stroke();
+        }
+    }
+    doc.restore();
+    
+    // Add Solar Hut Logo at top center - prominently displayed
     try {
-        // Add background image
-        doc.image(require('path').join(__dirname, '../assets/AboutPage.jpeg'), 0, 0, { width: doc.page.width, height: doc.page.height });
+        doc.image(require('path').join(__dirname, '../assets/SolarHutLOGO1.png'), (pageWidth - 150) / 2, 40, { width: 150 });
     } catch (e) {
-        console.warn('Background image not found');
+        // Fallback text logo
+        doc.fontSize(36)
+            .font('Helvetica-Bold')
+            .fillColor('#FF6B00')
+            .text('SOLAR HUT', 0, 50, { align: 'center', width: pageWidth })
+            .fontSize(16)
+            .fillColor('#333333')
+            .text('SOLUTIONS', 0, 95, { align: 'center', width: pageWidth });
     }
     
     // Add dynamic data overlay on page 1
     const estimateNumber = `SHS25-${String(estimation.id).padStart(6, '0')}`;
-    const estimateDate = new Date(estimation.created_at).toLocaleDateString('en-GB');
+    const estimateDate = new Date(estimation.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const requestedKW = estimation.requested_watts;
     
-    // Date and Estimate ID - white text, positioned higher (5% up)
-    doc.fontSize(14)
-        .font('Helvetica-Bold')
-        .fillColor('#FFFFFF')
-        .text(`Date: ${estimateDate}`, 40, 80)
-        .fontSize(12)
-        .text(`Estimate ID: ${estimateNumber}`, 40, 100);
-    
-    // Solar Proposal Title
-    doc.fontSize(18)
+    // Main Title - SOLAR PROPOSAL
+    doc.fontSize(44)
         .font('Helvetica-Bold')
         .fillColor('#FF6B00')
-        .text(`${requestedKW} || Solar Proposal`, 130, 430);
-
+        .text('SOLAR', 0, 200, { align: 'center', width: pageWidth })
+        .fillColor('#333333')
+        .text('PROPOSAL', 0, 255, { align: 'center', width: pageWidth });
+    
+    // KW Display in circle badge
+    doc.circle(pageWidth / 2, 340, 45).fill('#FFFFFF');
+    doc.fontSize(12)
+        .font('Helvetica')
+        .fillColor('#666666')
+        .text('System Size', 0, 318, { align: 'center', width: pageWidth });
+    doc.fontSize(22)
+        .font('Helvetica-Bold')
+        .fillColor('#FF6B00')
+        .text(requestedKW || '', 0, 340, { align: 'center', width: pageWidth });
+    
+    // Estimate Info Box (semi-transparent white)
+    doc.save();
+    doc.opacity(0.95);
+    doc.roundedRect(60, 410, pageWidth - 120, 70, 10).fill('#FFFFFF');
+    doc.restore();
+    doc.roundedRect(60, 410, pageWidth - 120, 70, 10).stroke('#E0E0E0');
+    doc.fontSize(10)
+        .font('Helvetica')
+        .fillColor('#888888')
+        .text('Estimate ID', 90, 422)
+        .text('Date', pageWidth / 2 + 30, 422);
+    doc.fontSize(16)
+        .font('Helvetica-Bold')
+        .fillColor('#FF6B00')
+        .text(estimateNumber, 90, 445)
+        .text(estimateDate, pageWidth / 2 + 30, 445);
+    
+    // Divider in estimate box
+    doc.strokeColor('#E0E0E0')
+        .lineWidth(1)
+        .moveTo(pageWidth / 2, 418)
+        .lineTo(pageWidth / 2, 472)
+        .stroke();
     
     // Prepared For and Prepared By sections at bottom of page 1
     const preparedByName = employee ? `${employee.first_name || ''} ${employee.last_name || ''}`.trim() : 'Solar Hut Solutions';
     const preparedByMobile = employee?.mobile || '9966177225';
     
-    // Positioned at bottom of page 1
-    const footerY = 710;
+    // Bottom section with semi-transparent white background over solar panels
+    doc.save();
+    doc.opacity(0.92);
+    doc.rect(0, 510, pageWidth, pageHeight - 510).fill('#FFFFFF');
+    doc.restore();
     
-    // Prepared For Section (left side) - no background
-    doc.fontSize(13)
+    // Orange accent line at top of bottom section
+    doc.rect(0, 510, pageWidth, 3).fill('#FF6B00');
+    
+    // Positioned at bottom of page 1
+    const footerY = 535;
+    
+    // Prepared For Section (left side)
+    doc.fontSize(12)
         .font('Helvetica-Bold')
-        .fillColor('#FFFFFF')
-        .text('Prepared For:', 60, footerY);
+        .fillColor('#FF6B00')
+        .text('PREPARED FOR', 60, footerY);
+    
+    doc.strokeColor('#FF6B00')
+        .lineWidth(2)
+        .moveTo(60, footerY + 16)
+        .lineTo(160, footerY + 16)
+        .stroke();
     
     doc.fontSize(11)
-        .font('Helvetica')
-        .fillColor('#FFFFFF')
-        .text(`Name: ${estimation.customer_name}`, 60, footerY + 18, { width: 250 })
-        .text(`Mobile: ${estimation.mobile}`, 60, footerY + 33, { width: 250 })
-        .text(`Address: ${estimation.door_no}, ${estimation.area}, ${estimation.city}`, 60, footerY + 48, { width: 350 })
-        .text(`${estimation.district}, ${estimation.state} - ${estimation.pincode}`, 60, footerY + 63, { width: 350 });
+        .font('Helvetica-Bold')
+        .fillColor('#333333')
+        .text(estimation.customer_name, 60, footerY + 28, { width: 220 });
     
-    // Prepared By Section (right side) - no background
-        // Prepared By Section (right side) - moved further right for more space
-        const preparedByX = 400; // Increased from 320 to 400 for more space
-        doc.fontSize(13)
-            .font('Helvetica-Bold')
-            .fillColor('#FFFFFF')
-            .text('Prepared By:', preparedByX, footerY);
-        doc.fontSize(11)
-            .font('Helvetica')
-            .fillColor('#FFFFFF')
-            .text(`Name: ${preparedByName}`, preparedByX, footerY + 18, { width: 250 })
-            .text(`Mobile: ${preparedByMobile}`, preparedByX, footerY + 33, { width: 250 })
-            .text('Solar Hut Solutions LLP', preparedByX, footerY + 48, { width: 250 })
-            .text('Vijayawada, Andhra Pradesh', preparedByX, footerY + 63, { width: 250 });
+    doc.fontSize(10)
+        .font('Helvetica')
+        .fillColor('#666666')
+        .text(`Mobile: ${estimation.mobile}`, 60, footerY + 46, { width: 220 })
+        .text(`${estimation.door_no}, ${estimation.area}`, 60, footerY + 60, { width: 220 })
+        .text(`${estimation.city}, ${estimation.district}`, 60, footerY + 74, { width: 220 })
+        .text(`${estimation.state} - ${estimation.pincode}`, 60, footerY + 88, { width: 220 });
+    
+    // Prepared By Section (right side)
+    const preparedByX = pageWidth / 2 + 30;
+    doc.fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor('#FF6B00')
+        .text('PREPARED BY', preparedByX, footerY);
+    
+    doc.strokeColor('#FF6B00')
+        .lineWidth(2)
+        .moveTo(preparedByX, footerY + 16)
+        .lineTo(preparedByX + 100, footerY + 16)
+        .stroke();
+    
+    doc.fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#333333')
+        .text(preparedByName, preparedByX, footerY + 28, { width: 220 });
+    
+    doc.fontSize(10)
+        .font('Helvetica')
+        .fillColor('#666666')
+        .text(`Mobile: ${preparedByMobile}`, preparedByX, footerY + 46, { width: 220 })
+        .text('Solar Hut Solutions LLP', preparedByX, footerY + 60, { width: 220 })
+        .text('Vijayawada, Andhra Pradesh', preparedByX, footerY + 74, { width: 220 });
     
     // Add new page and header starting from page 2
     doc.addPage();
@@ -284,27 +385,59 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
     addWatermark(doc);
     addHeader(doc, pageNumber, estimation);
     
-    // Bill To Section
-    doc.moveDown(0.5); // 10px margin top (approximately 0.5 line height)
-    doc.fontSize(11)
-        .font('Helvetica-Bold')
+    // Estimate ID, Date, District & State (table format - side by side)
+    const infoY = doc.y;
+    const estimateNum = `SHS25-${String(estimation.id).padStart(6, '0')}`;
+    const estDate = new Date(estimation.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const infoRowHeight = 25;
+    
+    // Draw table cells
+    doc.rect(50, infoY, 165, infoRowHeight).fillAndStroke('#F5F5F5', '#888888');
+    doc.rect(215, infoY, 140, infoRowHeight).fillAndStroke('#F5F5F5', '#888888');
+    doc.rect(355, infoY, 190, infoRowHeight).fillAndStroke('#F5F5F5', '#888888');
+    
+    // Labels and Values side by side (label normal, value bold)
+    doc.fontSize(9)
         .fillColor('#000000')
-        .text('Bill To', 50, doc.y)
-        .moveDown(0.3);
+        .font('Helvetica')
+        .text('Estimate: ', 55, infoY + 8, { continued: true })
+        .font('Helvetica-Bold')
+        .text(estimateNum);
     
     doc.fontSize(9)
+        .fillColor('#000000')
         .font('Helvetica')
-        .fillColor('#333333')
-        .text(`Sri/Smt, ${estimation.customer_name} Garu,`, 50, doc.y)
-        .text(`${estimation.door_no}, ${estimation.area}, ${estimation.city}, ${estimation.district}, ${estimation.state}- ${estimation.pincode}.`, 50, doc.y)
-        .text(`Ph: ${estimation.mobile}.`, 50, doc.y)
+        .text('Date: ', 220, infoY + 8, { continued: true })
+        .font('Helvetica-Bold')
+        .text(estDate);
+    
+    doc.fontSize(9)
+        .fillColor('#000000')
+        .font('Helvetica')
+        .text('Client District: ', 360, infoY + 8, { continued: true })
+        .font('Helvetica-Bold')
+        .text(`${estimation.district}, ${estimation.state}`);
+    
+    doc.y = infoY + infoRowHeight + 10;
+    
+    // Bill To Section (label on one line, value on next line)
+    doc.moveDown(0.5);
+    doc.fontSize(10)
+        .font('Helvetica')
+        .fillColor('#000000')
+        .text('Bill To:', 50, doc.y);
+    
+    doc.font('Helvetica-Bold')
+        .text(`Sri/Smt, ${estimation.customer_name} Garu, ${estimation.door_no}, ${estimation.area}, ${estimation.city}, ${estimation.district}, ${estimation.state}- ${estimation.pincode}. Ph: ${estimation.mobile}`, 50, doc.y, { width: 495 })
         .moveDown(0.8);
     
     // Note Section
     doc.fontSize(9)
-        .font('Helvetica-Bold')
+        .font('Helvetica')
         .fillColor('#000000')
-        .text(`Note: Quote for Installation of ${requestedKW}KW RTS plant for Client including Civil Work.`, 50, doc.y, { width: 495 })
+        .text('Note: ', 50, doc.y, { continued: true })
+        .font('Helvetica-Bold')
+        .text(`Quote for Installation of ${requestedKW}KW RTS plant for Client including Civil Work.`, { width: 495 })
         .moveDown(0.8);
     
     // Table width expanded to full page width
@@ -359,24 +492,66 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         // Dynamic data for 1st row
         if (index === 0) {
             doc.fontSize(9)
-                .font('Helvetica')
+                .font('Helvetica-Bold')
                 .fillColor('#333333')
                 .text(`${index + 1}) ${estimation.product_description || product}`, col1X + 5, currentY + 8, { width: col1Width - 10 });
             doc.fontSize(9)
-                .font('Helvetica')
+                .font('Helvetica-Bold')
                 .fillColor('#333333')
                 .text(estimation.gst ? `${estimation.gst}%` : '', col2X + 5, currentY + 8, { width: col2Width - 10, align: 'center' });
             doc.fontSize(9)
-                .font('Helvetica')
+                .font('Helvetica-Bold')
                 .fillColor('#333333')
                 .text(estimation.amount ? `Rs. ${baseAmount.toLocaleString('en-IN')}` : '', col3X + 5, currentY + 8, { width: col3Width - 10, align: 'right' });
+        } else if (index === 1) {
+            // Dynamic inverter watt for 2nd row
+            const structure = estimation.structure;
+            doc.fontSize(9)
+                .font('Helvetica-Bold')
+                .fillColor('#333333')
+                .text(`${index + 1}) ${structure}`, col1X + 5, currentY + 8, { width: col1Width - 10 });
         } else if (index === 2) {
             // Dynamic inverter watt for 3rd row
             const watt = estimation.requested_watts;
             doc.fontSize(9)
-                .font('Helvetica')
+                .font('Helvetica-Bold')
                 .fillColor('#333333')
                 .text(`${index + 1}) ${watt}`, col1X + 5, currentY + 8, { width: col1Width - 10 });
+        } else if (product.includes('(RED)')) {
+            // Only (RED) text in red color
+            const parts = product.split('(RED)');
+            doc.fontSize(9)
+                .font('Helvetica')
+                .fillColor('#333333')
+                .text(`${index + 1}) ${parts[0]}`, col1X + 5, currentY + 8, { continued: true })
+                .fillColor('#FF0000')
+                .text('(RED)', { continued: true })
+                .fillColor('#333333')
+                .text(parts[1] || '', { width: col1Width - 10 });
+        } else if (product.includes('(BLACK)')) {
+            // Only (BLACK) text in black color
+            const parts = product.split('(BLACK)');
+            doc.fontSize(9)
+                .font('Helvetica')
+                .fillColor('#333333')
+                .text(`${index + 1}) ${parts[0]}`, col1X + 5, currentY + 8, { continued: true })
+                .fillColor('#000000')
+                .font('Helvetica-Bold')
+                .text('(BLACK)', { continued: true })
+                .font('Helvetica')
+                .fillColor('#333333')
+                .text(parts[1] || '', { width: col1Width - 10 });
+        } else if (product.includes('(GREEN)')) {
+            // Only (GREEN) text in green color
+            const parts = product.split('(GREEN)');
+            doc.fontSize(9)
+                .font('Helvetica')
+                .fillColor('#333333')
+                .text(`${index + 1}) ${parts[0]}`, col1X + 5, currentY + 8, { continued: true })
+                .fillColor('#008000')
+                .text('(GREEN)', { continued: true })
+                .fillColor('#333333')
+                .text(parts[1] || '', { width: col1Width - 10 });
         } else {
             doc.fontSize(9)
                 .font('Helvetica')
@@ -415,13 +590,13 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         .text('Total Amount (Incl. GST)', col1X + 5, currentY + 6, { width: col1Width + col2Width - 10 })
         .text(`Rs. ${totalAmount.toLocaleString('en-IN')} /-`, col3X + 5, currentY + 6, { width: col3Width - 10, align: 'right' });
     
-    // Total in words just below table - with margin top
-    doc.moveDown(0.9); // 2px margin top
+    // Total in words just below table - with margin top and indentation
+    doc.moveDown(1.5);
     doc.fontSize(10)
         .font('Helvetica')
-        .text('Total Amount in Words: ', 50, doc.y, { continued: true })
+        .text('Total Amount in Words: ', 80, doc.y, { continued: true })
         .font('Helvetica-Bold')
-        .text(numberToWords(totalAmount), { width: 495 });
+        .text(numberToWords(totalAmount), { width: 465 });
     doc.moveDown(2);
     
     // Check if we need a new page for thank you message
@@ -449,32 +624,69 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
     }
     
     // Bank Details
+    doc.moveDown(1.5);
+    const bankDetailsY = doc.y;
     doc.fontSize(12)
         .font('Helvetica-Bold')
         .fillColor('#FF6B00')
-        .text('Bank Details for Payments:', 50, doc.y)
-        .moveDown(0.5);
+        .text('Bank Details for Payments:', 50, bankDetailsY);
+    doc.strokeColor('#FF6B00')
+        .lineWidth(1)
+        .moveTo(50, bankDetailsY + 14)
+        .lineTo(210, bankDetailsY + 14)
+        .stroke();
+    doc.moveDown(1);
     
     doc.fontSize(10)
-        .font('Helvetica')
         .fillColor('#333333')
-        .text('Bank Name: State Bank of India', 50, doc.y)
-        .text('Account Name: Solar Hut Solutions LLP', 50, doc.y)
-        .text('A/C No: 44513337275', 50, doc.y)
-        .text('IFSC: SBIN0012948', 50, doc.y)
-        .text('Branch: Pantakalava Road, Vijayawada.', 50, doc.y)
+        .font('Helvetica')
+        .text('Bank Name: ', 50, doc.y, { continued: true })
+        .font('Helvetica-Bold')
+        .text(BANK_DETAILS.bankName)
+        .moveDown(0.3);
+    
+    doc.font('Helvetica')
+        .text('Account Name: ', 50, doc.y, { continued: true })
+        .font('Helvetica-Bold')
+        .text(BANK_DETAILS.accountName)
+        .moveDown(0.3);
+    
+    doc.font('Helvetica')
+        .text('A/C No: ', 50, doc.y, { continued: true })
+        .font('Helvetica-Bold')
+        .text(BANK_DETAILS.accountNumber)
+        .moveDown(0.3);
+    
+    doc.font('Helvetica')
+        .text('IFSC: ', 50, doc.y, { continued: true })
+        .font('Helvetica-Bold')
+        .text(BANK_DETAILS.ifsc)
+        .moveDown(0.3);
+    
+    doc.font('Helvetica')
+        .text('Branch: ', 50, doc.y, { continued: true })
+        .font('Helvetica-Bold')
+        .text(BANK_DETAILS.branch)
         .moveDown(1);
     
+    const upiY = doc.y;
     doc.fontSize(12)
         .font('Helvetica-Bold')
         .fillColor('#FF6B00')
-        .text('For UPI Payments:', 50, doc.y)
-        .moveDown(0.5);
+        .text('For UPI Payments:', 50, upiY);
+    doc.strokeColor('#FF6B00')
+        .lineWidth(1)
+        .moveTo(50, upiY + 14)
+        .lineTo(155, upiY + 14)
+        .stroke();
+    doc.moveDown(0.8);
     
     doc.fontSize(10)
-        .font('Helvetica')
         .fillColor('#333333')
-        .text('UPI ID: solarhutsolutionsllp@sbi', 50, doc.y)
+        .font('Helvetica')
+        .text('UPI ID: ', 50, doc.y, { continued: true })
+        .font('Helvetica-Bold')
+        .text(UPI_DETAILS.upiId)
         .moveDown(2);
     
     // Check if we need a new page for Warranty
@@ -487,17 +699,139 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
     }
     
     // Warranty Terms and Conditions
+    const warrantyY = doc.y;
     doc.fontSize(12)
         .font('Helvetica-Bold')
         .fillColor('#FF6B00')
-        .text('Warranty Terms and Conditions', 50, doc.y)
-        .moveDown(0.5);
+        .text('Warranty Terms and Conditions', 50, warrantyY);
+    doc.strokeColor('#FF6B00')
+        .lineWidth(1)
+        .moveTo(50, warrantyY + 14)
+        .lineTo(245, warrantyY + 14)
+        .stroke();
+    doc.moveDown(0.8);
     
+    // Product Warranty Details Table
+    const prodWarrantyY = doc.y;
     doc.fontSize(11)
         .font('Helvetica-Bold')
         .fillColor('#333333')
-        .text('Warranty Coverage', 50, doc.y)
-        .moveDown(0.3);
+        .text('Product Warranty Details:', 50, prodWarrantyY);
+    doc.strokeColor('#333333')
+        .lineWidth(0.5)
+        .moveTo(50, prodWarrantyY + 13)
+        .lineTo(185, prodWarrantyY + 13)
+        .stroke();
+    doc.moveDown(0.7);
+    
+    // Table configuration
+    const warrantyTableY = doc.y;
+    const wCol1X = 50;
+    const wCol2X = 150;
+    const wCol3X = 295;
+    const wCol4X = 400;
+    const wCol1W = 100;
+    const wCol2W = 145;
+    const wCol3W = 105;
+    const wCol4W = 95;
+    const wRowHeight = 35;
+    const wHeaderHeight = 25;
+    
+    // Header row
+    doc.rect(wCol1X, warrantyTableY, wCol1W, wHeaderHeight).fillAndStroke('#E0E0E0', '#888888');
+    doc.rect(wCol2X, warrantyTableY, wCol2W, wHeaderHeight).fillAndStroke('#E0E0E0', '#888888');
+    doc.rect(wCol3X, warrantyTableY, wCol3W, wHeaderHeight).fillAndStroke('#E0E0E0', '#888888');
+    doc.rect(wCol4X, warrantyTableY, wCol4W, wHeaderHeight).fillAndStroke('#E0E0E0', '#888888');
+    
+    doc.fontSize(8)
+        .font('Helvetica-Bold')
+        .fillColor('#000000')
+        .text('Component', wCol1X + 5, warrantyTableY + 8, { width: wCol1W - 10 })
+        .text('Standard Warranty', wCol2X + 5, warrantyTableY + 8, { width: wCol2W - 10, align: 'center' })
+        .text('Warranty Type', wCol3X + 5, warrantyTableY + 8, { width: wCol3W - 10, align: 'center' })
+        .text('Extended Warranty\n(Optional)', wCol4X + 5, warrantyTableY + 3, { width: wCol4W - 10, align: 'center' });
+    
+    let wCurrentY = warrantyTableY + wHeaderHeight;
+    
+    // Warranty data rows
+    const warrantyData = [
+        { component: 'Solar PV Modules', standard: '10 Years – Product Warranty\n25 Years – Performance Warranty', type: 'Product &\nPerformance', extended: 'Not Available' },
+        { component: 'Inverter', standard: '5 Years', type: 'Inverter Only', extended: '5 – 10 Years' },
+        { component: 'Structure', standard: '5 Years', type: 'Structure Only', extended: 'Not Available' },
+        { component: 'AC Cables', standard: '1 Year', type: 'AC Cables Only', extended: '2 Years' },
+        { component: 'DC Cables', standard: '1 Year', type: 'DC Cables Only', extended: '2 Years' },
+        { component: 'Lightning Protection', standard: '1 Year', type: 'Lightning Only', extended: 'Not Available' }
+    ];
+    
+    warrantyData.forEach((row, index) => {
+        const rowH = index === 0 ? wRowHeight + 10 : wRowHeight;
+        
+        // Check if we need a new page
+        if (wCurrentY + rowH > 700) {
+            addFooter(doc, pageNumber);
+            doc.addPage();
+            pageNumber++;
+            addWatermark(doc);
+            addHeader(doc, pageNumber, estimation);
+            wCurrentY = doc.y;
+            
+            // Redraw header on new page
+            doc.rect(wCol1X, wCurrentY, wCol1W, wHeaderHeight).fillAndStroke('#E0E0E0', '#888888');
+            doc.rect(wCol2X, wCurrentY, wCol2W, wHeaderHeight).fillAndStroke('#E0E0E0', '#888888');
+            doc.rect(wCol3X, wCurrentY, wCol3W, wHeaderHeight).fillAndStroke('#E0E0E0', '#888888');
+            doc.rect(wCol4X, wCurrentY, wCol4W, wHeaderHeight).fillAndStroke('#E0E0E0', '#888888');
+            
+            doc.fontSize(8)
+                .font('Helvetica-Bold')
+                .fillColor('#000000')
+                .text('Component', wCol1X + 5, wCurrentY + 8, { width: wCol1W - 10 })
+                .text('Standard Warranty', wCol2X + 5, wCurrentY + 8, { width: wCol2W - 10, align: 'center' })
+                .text('Warranty Type', wCol3X + 5, wCurrentY + 8, { width: wCol3W - 10, align: 'center' })
+                .text('Extended Warranty\n(Optional)', wCol4X + 5, wCurrentY + 3, { width: wCol4W - 10, align: 'center' });
+            
+            wCurrentY += wHeaderHeight;
+        }
+        
+        doc.rect(wCol1X, wCurrentY, wCol1W, rowH).stroke('#888888');
+        doc.rect(wCol2X, wCurrentY, wCol2W, rowH).stroke('#888888');
+        doc.rect(wCol3X, wCurrentY, wCol3W, rowH).stroke('#888888');
+        doc.rect(wCol4X, wCurrentY, wCol4W, rowH).stroke('#888888');
+        
+        const textY = index === 0 ? wCurrentY + 8 : wCurrentY + 12;
+        
+        doc.fontSize(8)
+            .font('Helvetica')
+            .fillColor('#333333')
+            .text(row.component, wCol1X + 5, textY, { width: wCol1W - 10 })
+            .text(row.standard, wCol2X + 5, textY, { width: wCol2W - 10, align: 'center' })
+            .text(row.type, wCol3X + 5, textY, { width: wCol3W - 10, align: 'center' })
+            .text(row.extended, wCol4X + 5, textY, { width: wCol4W - 10, align: 'center' });
+        
+        wCurrentY += rowH;
+    });
+    
+    doc.y = wCurrentY + 15;
+    
+    // Check if we need a new page for Warranty Coverage
+    if (doc.y > 650) {
+        addFooter(doc, pageNumber);
+        doc.addPage();
+        pageNumber++;
+        addWatermark(doc);
+        addHeader(doc, pageNumber, estimation);
+    }
+    
+    const warrantyCoverageY = doc.y;
+    doc.fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#333333')
+        .text('Warranty Coverage', 50, warrantyCoverageY);
+    doc.strokeColor('#333333')
+        .lineWidth(0.5)
+        .moveTo(50, warrantyCoverageY + 13)
+        .lineTo(155, warrantyCoverageY + 13)
+        .stroke();
+    doc.moveDown(0.5);
     
     doc.fontSize(9)
         .font('Helvetica')
@@ -536,11 +870,17 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
     }
     
     doc.moveDown(0.5);
+    const warrantyEligibilityY = doc.y;
     doc.fontSize(11)
         .font('Helvetica-Bold')
         .fillColor('#333333')
-        .text('Warranty Eligibility', 50, doc.y)
-        .moveDown(0.3);
+        .text('Warranty Eligibility', 50, warrantyEligibilityY);
+    doc.strokeColor('#333333')
+        .lineWidth(0.5)
+        .moveTo(50, warrantyEligibilityY + 13)
+        .lineTo(150, warrantyEligibilityY + 13)
+        .stroke();
+    doc.moveDown(0.5);
     
     doc.fontSize(9)
         .font('Helvetica')
@@ -575,10 +915,16 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         addHeader(doc, pageNumber, estimation);
     }
     
+    const exclusionsY = doc.y;
     doc.fontSize(11)
         .font('Helvetica-Bold')
-        .text('Exclusions (What\'s NOT covered)', 50, doc.y)
-        .moveDown(0.3);
+        .text('Exclusions (What\'s NOT covered)', 50, exclusionsY);
+    doc.strokeColor('#333333')
+        .lineWidth(0.5)
+        .moveTo(50, exclusionsY + 13)
+        .lineTo(225, exclusionsY + 13)
+        .stroke();
+    doc.moveDown(0.5);
     
     doc.fontSize(9)
         .font('Helvetica')
@@ -617,11 +963,17 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
     }
     
     // Benefits Section
+    const benefitsY = doc.y;
     doc.fontSize(12)
         .font('Helvetica-Bold')
         .fillColor('#FF6B00')
-        .text('Benefits of choosing Solar Hut Solutions', 50, doc.y)
-        .moveDown(0.5);
+        .text('Benefits of choosing Solar Hut Solutions', 50, benefitsY);
+    doc.strokeColor('#FF6B00')
+        .lineWidth(1)
+        .moveTo(50, benefitsY + 14)
+        .lineTo(295, benefitsY + 14)
+        .stroke();
+    doc.moveDown(0.8);
     
     const benefits = [
         'Free Site Visits.',
@@ -657,15 +1009,15 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         addHeader(doc, pageNumber, estimation);
     }
     
-    // Regards Section
+    // Regards Section with Stamp
+    const regardsY = doc.y;
+    
     doc.fontSize(10)
         .font('Helvetica-Bold')
-        .text('Regards', 50, doc.y)
+        .text('Regards', 50, regardsY)
         .moveDown(0.3);
 
     const employeeName = `${employee?.first_name || 'Solar'} ${employee?.last_name || 'hut'}`.trim() || 'Solar hut';
-
-
 
     doc.fontSize(10)
         .font('Helvetica')
@@ -673,6 +1025,22 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         .text(employee?.mobile || '9966177225', 50, doc.y)
         .text('Solar Hut Solutions LLP', 50, doc.y)
         .text('Vijayawada, Andhra Pradesh', 50, doc.y);
+    
+    // Add company stamp beside Regards section
+    try {
+        doc.image(require('path').join(__dirname, '../assets/stamp.png'), 350, regardsY - 10, { width: 100 });
+    } catch (e) {
+        // Fallback: Draw a simple stamp circle if image not found
+        doc.save();
+        doc.circle(400, regardsY + 35, 45).stroke('#333333');
+        doc.circle(400, regardsY + 35, 40).stroke('#333333');
+        doc.fontSize(8)
+            .font('Helvetica-Bold')
+            .fillColor('#333333')
+            .text('SOLAR HUT SOLUTIONS LLP', 355, regardsY + 15, { width: 90, align: 'center' })
+            .text('VIJAYAWADA', 355, regardsY + 45, { width: 90, align: 'center' });
+        doc.restore();
+    }
     
     addFooter(doc, pageNumber);
 

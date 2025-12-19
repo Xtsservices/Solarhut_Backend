@@ -465,6 +465,7 @@ CREATE TABLE IF NOT EXISTS estimations (
     state VARCHAR(100) NOT NULL,
     pincode VARCHAR(10) NOT NULL,
     mobile VARCHAR(15) NOT NULL,
+    structure VARCHAR(100),
     product_description TEXT,
     requested_watts TEXT,
     gst DECIMAL(5,2) DEFAULT 18.00,
@@ -796,6 +797,22 @@ const migrateContactsTable = async () => {
   }
 };
 
+const migrateEstimationsTable = async () => {
+  try {
+    // Add structure column to estimations table
+    await db.execute(`ALTER TABLE estimations ADD COLUMN structure VARCHAR(100) AFTER mobile`);
+    console.log("Successfully migrated estimations table - added structure column");
+  } catch (error: any) {
+    if (error.code === 'ER_DUP_FIELDNAME') {
+      console.log("Structure column already exists in estimations table");
+    } else if (error.code === 'ER_NO_SUCH_TABLE') {
+      console.log("estimations table doesn't exist yet, will be created with correct schema");
+    } else {
+      console.log("Migration for estimations table:", error.message);
+    }
+  }
+};
+
 export const initializeDatabase = async () => {
   try {
     // Create tables
@@ -825,18 +842,19 @@ export const initializeDatabase = async () => {
     await migrateJobPaymentsTable();
     await migrateRolesTable();
     await migrateContactsTable();
+    await migrateEstimationsTable();
 
     // Insert default roles if they don't exist
     await insertDefaultRoles();
 
     // Insert default countries if they don't exist
-    await insertDefaultCountries();
+    // await insertDefaultCountries();
 
-    // Insert default states if they don't exist
-    await insertDefaultStates();
+    // // Insert default states if they don't exist
+    // await insertDefaultStates();
 
-    // Insert default districts if they don't exist
-    await insertDefaultDistricts();
+    // // Insert default districts if they don't exist
+    // await insertDefaultDistricts();
 
     console.log("Database tables initialized successfully with default data");
   } catch (error) {
