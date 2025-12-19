@@ -8,7 +8,6 @@ import { estimationSchema } from '../utils/validations';
 export const createEstimation = async (req: Request, res: Response) => {
     try {
         // Public endpoint - created_by is optional (customer submissions)
-        console.log('Res Locals:', req.body);
         const userId = res.locals?.user?.id;
 
         // Validate request body
