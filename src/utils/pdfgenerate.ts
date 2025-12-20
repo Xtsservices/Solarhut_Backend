@@ -366,13 +366,14 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         .fillColor('#333333')
         .text(toTitleCase(estimation.customer_name), 60, footerY + 32, { width: 220 });
     
-    doc.fontSize(12)
+    doc.fontSize(11)
         .font('Helvetica')
-        .fillColor('#666666')
-        .text(`Mobile: ${estimation.mobile}`, 60, footerY + 52, { width: 220 })
-        .text(`${toTitleCase(estimation.door_no)}, ${toTitleCase(estimation.area)}`, 60, footerY + 68, { width: 220 })
-        .text(`${toTitleCase(estimation.city)}, ${toTitleCase(estimation.district)}`, 60, footerY + 84, { width: 220 })
-        .text(`${toTitleCase(estimation.state)} - ${estimation.pincode}`, 60, footerY + 100, { width: 220 });
+        .fillColor('#666666');
+    doc.text(`Mobile: ${estimation.mobile}`, 60, footerY + 52, { width: 220 });
+    doc.text(`${toTitleCase(estimation.door_no)}`, 60, footerY + 68, { width: 220 });
+    doc.text(`${toTitleCase(estimation.area)}`, 60, footerY + 82, { width: 220 });
+    doc.text(`${toTitleCase(estimation.city)}, ${toTitleCase(estimation.district)}`, 60, footerY + 96, { width: 220 });
+    doc.text(`${toTitleCase(estimation.state)} - ${estimation.pincode}`, 60, footerY + 110, { width: 220 });
     
     // Prepared By Section (right side)
     const preparedByX = pageWidth / 2 + 30;
@@ -396,11 +397,11 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
         .font('Helvetica')
         .fillColor('#666666')
         .text('Office: 9966177225', preparedByX, footerY + 52, { width: 220 })
-        .text('Operations: 9848992333', preparedByX, footerY + 68, { width: 220 })
-        .text('Solar Hut Solutions LLP', preparedByX, footerY + 84, { width: 220 })
-        .text('Vijayawada, Andhra Pradesh', preparedByX, footerY + 100, { width: 220 })
+        .text('Operations: 9848992333', preparedByX, footerY + 72, { width: 220 })
+        .text('Solar Hut Solutions LLP', preparedByX, footerY + 92, { width: 220 })
+        .text('Vijayawada, Andhra Pradesh', preparedByX, footerY + 112, { width: 220 })
         .fillColor('#333333')
-        .text('www.solarhutsolutions.in', preparedByX, footerY + 116, { width: 220, link: 'http://solarhutsolutions.in/' });
+        .text('www.solarhutsolutions.in', preparedByX, footerY + 132, { width: 220, link: 'http://solarhutsolutions.in/' });
     
     // Add new page and header starting from page 2
     doc.addPage();
@@ -1065,7 +1066,7 @@ export const generateEstimationPDF = (estimation: Estimation, employee?: any): P
     doc.fontSize(10)
         .font('Helvetica-Bold')
         .text('Regards', 50, regardsY)
-        .moveDown(0.3);
+        .moveDown(2);
 
     const employeeName = toTitleCase(`${employee?.first_name || 'Solar'} ${employee?.last_name || 'hut'}`.trim()) || 'Solar Hut';
 
