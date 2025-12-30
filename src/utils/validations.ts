@@ -1,5 +1,12 @@
 import Joi from 'joi';
 
+export const invoiceValidation = Joi.object({
+    estimationId: Joi.number().required(),
+    invoiceDate: Joi.date().required(),
+    amount: Joi.number().min(0).required(),
+    product_description: Joi.string().allow('', null),
+});
+
 export const estimationSchema = Joi.object({
     customer_name: Joi.string().max(200).required(),
     door_no: Joi.string().max(50).required(),

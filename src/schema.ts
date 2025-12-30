@@ -465,7 +465,7 @@ CREATE TABLE IF NOT EXISTS estimations (
     state VARCHAR(100) NOT NULL,
     pincode VARCHAR(10) NOT NULL,
     mobile VARCHAR(15) NOT NULL,
-    structure VARCHAR(100),
+    structure_type VARCHAR(100),
     product_description TEXT,
     requested_watts TEXT,
     gst DECIMAL(5,2) DEFAULT 18.00,
@@ -486,6 +486,42 @@ CREATE TABLE IF NOT EXISTS estimations (
     INDEX idx_created_at (created_at)
 )
 `;
+
+const createInvoicesTable = `
+CREATE TABLE IF NOT EXISTS invoices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    estimation_id INT NOT NULL,
+    invoiceDate DATE NOT NULL,
+    customer_name VARCHAR(200) NOT NULL,
+    door_no VARCHAR(50) NOT NULL,
+    area VARCHAR(100) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    district VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    pincode VARCHAR(10) NOT NULL,
+    mobile VARCHAR(15) NOT NULL,
+    structure_type VARCHAR(100),
+    product_description TEXT,
+    requested_watts TEXT,
+    gst DECIMAL(5,2) DEFAULT 18.00,
+    amount DECIMAL(12,2) NOT NULL,
+    created_by INT,
+    updated_by INT,
+    status ENUM('Active','Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_customer_name (customer_name),
+    INDEX idx_mobile (mobile),
+    INDEX idx_district (district),
+    INDEX idx_state (state),
+    INDEX idx_pincode (pincode),
+    INDEX idx_status (status),
+    INDEX idx_created_by (created_by),
+    INDEX idx_updated_by (updated_by),
+    INDEX idx_created_at (created_at)
+)
+`;
+
 
 const insertDefaultRoles = async () => {
   const defaultRoles = [
@@ -836,6 +872,7 @@ export const initializeDatabase = async () => {
     await db.execute(createJobPaymentsTable);
     await db.execute(createJobLocationsTable);
     await db.execute(createEstimationsTable);
+    await db.execute(createInvoicesTable);
 
     // Run migrations for existing tables
     await migrateJobAssignmentsTable();
