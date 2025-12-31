@@ -58,6 +58,17 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
     try {
       // Explicitly set A4 size in points to avoid any ambiguity
       const doc = new PDFDocument({ size: [595.28, 841.89], margin: 0 });
+
+      // === Add Logo Watermark (centered, low opacity) ===
+      doc.save();
+      try {
+        doc.opacity(0.08);
+        doc.image(path.join(__dirname, '../assets/SolarHutLOGO1.png'), 150, 250, { width: 300 });
+        doc.opacity(1);
+      } catch (e) {
+        // If watermark fails, continue without it
+      }
+      doc.restore();
       const buffers: Buffer[] = [];
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => {
@@ -68,9 +79,12 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
       // Authorised Signatory at bottom, moved slightly left
       const pageHeight = doc.page.height;
       const signX = 320; // moved slightly right from 270
+      // Move signatory block a little right and a little down
+      const signBlockX = signX + 20; // 20px more to the right
+      const signBlockY = pageHeight - 60; // 10px further down
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#000')
-        .text('For SOLAR HUT', signX, pageHeight - 70, { align: 'right', width: 215 })
-        .text('Authorised Signatory', signX, pageHeight - 50, { align: 'right', width: 215 });
+        .text('For SOLAR HUT', signBlockX, signBlockY, { align: 'right', width: 215 })
+        .text('Authorised Signatory', signBlockX, signBlockY + 20, { align: 'right', width: 215 });
 
 
       // === Header: Logo and Company Info (no background) ===
@@ -101,7 +115,7 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
   doc.moveTo(40, infoY + 20).lineTo(555, infoY + 20).strokeColor('#888888').lineWidth(1).stroke();
 
       // === Invoice Title ===
-      doc.fontSize(20).font('Helvetica-Bold').fillColor('#FF6B00').text('TAX INVOICE', 0, 120, { align: 'center', width: doc.page.width });
+      doc.fontSize(20).font('Helvetica-Bold').fillColor('#FF6B00').text('INVOICE', 0, 120, { align: 'center', width: doc.page.width });
 
       // === Invoice/Customer/Date Table ===
       const tableY = 160;
@@ -122,7 +136,7 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
       // === Consignee (Ship to) and Bill To blocks ===
       const blockTop = tableY + 45;
       // Consignee (Ship to) - left side (dynamic customer details)
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Consignee (Ship to)', 40, blockTop);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Ship to:', 40, blockTop);
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#333')
         .text(`${invoice.customer_name} Garu,`, 40, blockTop + 18)
         .text(`${invoice.door_no || ''}, ${invoice.area || ''}, ${invoice.city || ''}`, 40, blockTop + 33)
@@ -130,7 +144,7 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
         .text(`Ph: ${invoice.mobile || ''}`, 40, blockTop + 63);
       // Bill To - right side
       const billToX = 320;
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Buyer - Bill To:', billToX, blockTop);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Bill To:', billToX, blockTop);
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#333')
         .text(`${invoice.customer_name} Garu,`, billToX, blockTop + 18)
         .text(`${invoice.door_no || ''}, ${invoice.area || ''}, ${invoice.city || ''}`, billToX, blockTop + 33)
@@ -139,13 +153,13 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
 
       // === Product Table ===
       const prodTableY = tableY + 140;
-      // Table columns: Product Description | Quantity | GST | Amount
+      // Table columns: Product Description | Quantity | Total Capacity | Amount
       // Adjusted to fit A4 page width (595pt) with 40pt left margin and 40pt right margin
       const tableLeft = 40;
       const tableWidth = 595 - 2 * tableLeft;
       const col1W = Math.round(tableWidth * 0.44); // Product Description
       const colQtyW = Math.round(tableWidth * 0.16); // Quantity
-      const col2W = Math.round(tableWidth * 0.18); // GST
+      const col2W = Math.round(tableWidth * 0.18); // Total Capacity
       const col3W = tableWidth - col1W - colQtyW - col2W; // Amount (remaining)
       const col1X = tableLeft;
       const colQtyX = col1X + col1W;
@@ -155,12 +169,12 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
       // Header
       doc.rect(col1X, prodTableY, col1W, rowH).fillAndStroke('#E0E0E0', '#888888'); // Product Description
       doc.rect(colQtyX, prodTableY, colQtyW, rowH).fillAndStroke('#E0E0E0', '#888888'); // Quantity
-      doc.rect(col2X, prodTableY, col2W, rowH).fillAndStroke('#E0E0E0', '#888888'); // GST
+      doc.rect(col2X, prodTableY, col2W, rowH).fillAndStroke('#E0E0E0', '#888888'); // Total Capacity
       doc.rect(col3X, prodTableY, col3W, rowH).fillAndStroke('#E0E0E0', '#888888'); // Amount
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#000')
         .text('Product Description', col1X + 5, prodTableY + 8, { width: col1W - 10 })
         .text('Quantity', colQtyX + 5, prodTableY + 8, { width: colQtyW - 10, align: 'center' })
-        .text('GST', col2X + 5, prodTableY + 8, { width: col2W - 10, align: 'center' })
+        .text('Total Capacity', col2X + 5, prodTableY + 8, { width: col2W - 10, align: 'center' })
         .text('Amount', col3X + 5, prodTableY + 8, { width: col3W - 10, align: 'right' });
       // Row
       const baseAmount = typeof invoice.amount === 'string' ? parseFloat(invoice.amount) : invoice.amount;
@@ -182,27 +196,35 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
       doc.rect(col3X, rowY, col3W, dynamicRowH).stroke('#888888');
       doc.font('Helvetica').fontSize(10).fillColor('#333')
         .text(invoice.product_description || '', col1X + 5, rowY + 8, { width: col1W - 10 })
-        .text(invoice.requested_watts ? String(invoice.requested_watts) : '', colQtyX + 5, rowY + 8, { width: colQtyW - 10, align: 'center' })
-        .text(invoice.gst ? `${invoice.gst}%` : '', col2X + 5, rowY + 8, { width: col2W - 10, align: 'center' })
+        .text('1', colQtyX + 5, rowY + 8, { width: colQtyW - 10, align: 'center' })
+        .text(invoice.requested_watts ? String(invoice.requested_watts) : '', col2X + 5, rowY + 8, { width: col2W - 10, align: 'center' })
         .text(baseAmount ? `Rs. ${baseAmount.toLocaleString('en-IN')}` : '', col3X + 5, rowY + 8, { width: col3W - 10, align: 'right' });
 
       // Total row (spans all columns, includes GST)
       rowY += dynamicRowH;
       const totalSpanW = col1W + colQtyW + col2W; // Span all columns except Amount
+      // GST Amount Row
+      doc.rect(col1X, rowY, totalSpanW, rowH).fillAndStroke('#FFF7E6', '#888888');
+      doc.rect(col3X, rowY, col3W, rowH).fillAndStroke('#FFF7E6', '#888888');
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000')
+        .text(`GST Amount (${invoice.gst ? `${invoice.gst}%` : ''})`, col1X + 5, rowY + 8, { width: totalSpanW - 10 })
+        .text(`Rs. ${gstAmount.toLocaleString('en-IN')} /-`, col3X + 5, rowY + 8, { width: col3W - 10, align: 'right' });
+
+      // Total Amount Row
+      rowY += rowH;
       doc.rect(col1X, rowY, totalSpanW, rowH).fillAndStroke('#FFE5CC', '#888888');
       doc.rect(col3X, rowY, col3W, rowH).fillAndStroke('#FFE5CC', '#888888');
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#000')
-        .text(`Total Amount (Incl. ${invoice.gst ? `GST ${invoice.gst}%` : 'GST'})`, col1X + 5, rowY + 8, { width: totalSpanW - 10 })
+        .text('Total Amount (Incl. GST)', col1X + 5, rowY + 8, { width: totalSpanW - 10 })
         .text(`Rs. ${totalAmount.toLocaleString('en-IN')} /-`, col3X + 5, rowY + 8, { width: col3W - 10, align: 'right' });
 
       // Total in words
-      doc.font('Helvetica').fontSize(10).fillColor('#000')
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000')
         .text('Amount Chargeable (in words) : ', 40, rowY + rowH + 15, { continued: true })
         .font('Helvetica-Bold').text(numberToWords(totalAmount), { width: 495 });
 
       // Company's Bank Details (custom content)
-
-      let bankY = rowY + rowH + 60;
+      let bankY = rowY + rowH + 35;
       doc.font('Helvetica-Bold').fontSize(12).fillColor('#FF6B00').text("Company's Bank Details", 40, bankY);
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#333')
         .text('Bank Name: State Bank of India', 40, bankY + 20)
@@ -212,11 +234,64 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
         .text('Branch: Pantakalava Road, Vijayawada.', 40, bankY + 80);
 
       // Declaration section (moved after bank details)
-      const declarationY = bankY + 110;
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Declaration', 40, declarationY);
-      doc.font('Helvetica').fontSize(10).fillColor('#333')
-        .text('We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.', 40, declarationY + 18, { width: 515 });
+      // Terms & Conditions section (replaces Declaration)
+      const termsY = bankY + 110;
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Terms & Conditions:', 40, termsY);
+      doc.font('Helvetica').fontSize(10).fillColor('#333');
+      const terms = [
+        'Material will be dispatched to the Buyer location only after 100% of the payment received in Cash / UPI / Loan to the Solar Hut Solutions LLP.',
+        'Upon receiving the material, Buyer is responsible for the material dispatched at his / her location until installation process is completed.',
+        'No Refund / Exchange can be processed once after the Invoice is generated.',
+        'Installation will be done in orderly process.',
+        'It is the responsibility of the Buyer to provide clean and obstacle free area for the installation team to carry out the installation process.'
+      ];
+      let termsYOffset = termsY + 18;
+      terms.forEach((point, idx) => {
+        // Draw point number at left, then text starting after number, with strict wrapping
+        const pointNum = `${idx + 1})`;
+        const leftMargin = 45;
+        const numWidth = doc.widthOfString(pointNum) + 2;
+        const contentStartX = leftMargin + numWidth;
+        const maxTextWidth = 470; // fixed width for all lines
+        // Manually wrap the content to align wrapped lines
+        let words = point.split(' ');
+        let line = '';
+        let lines = [];
+        words.forEach(word => {
+          const testLine = line ? line + ' ' + word : word;
+          if (doc.widthOfString(testLine) > maxTextWidth) {
+            lines.push(line);
+            line = word;
+          } else {
+            line = testLine;
+          }
+        });
+        if (line) lines.push(line);
+        // Draw the first line with the number
+        doc.text(pointNum, leftMargin, termsYOffset, { continued: true });
+        doc.text(lines[0], contentStartX, termsYOffset, { width: maxTextWidth });
+        let lineHeight = doc.heightOfString(lines[0], { width: maxTextWidth });
+        for (let i = 1; i < lines.length; i++) {
+          termsYOffset += lineHeight;
+          doc.text(lines[i], contentStartX, termsYOffset, { width: 515 - 10 - doc.widthOfString(pointNum) });
+          lineHeight = doc.heightOfString(lines[i], { width: 515 - 10 - doc.widthOfString(pointNum) });
+        }
+        termsYOffset += lineHeight + 4;
+      });
 
+      // Add company seal image above the signatory section
+      try {
+        // Place the seal above the signatory block, move a bit more right and down for better appearance
+        const sealWidth = 110;
+        const sealHeight = 130;
+        // Move the seal a bit more right and down
+        const sealX = signX + (215 - sealWidth) / 2 + 90; // 20px further right than before
+        const signatoryTop = pageHeight - 70;
+        const sealY = signatoryTop - sealHeight + 40; // 20px further down than before
+        doc.image(path.join(__dirname, '../assets/solarhutstamp.jpeg'), sealX, sealY, { width: sealWidth, height: sealHeight });
+      } catch (e) {
+        // If image fails, do nothing
+      }
       doc.end();
     } catch (err) {
       reject(err);
