@@ -1,3 +1,16 @@
+export async function updateInvoiceByEstimationId(estimationId: number, updateData: any) {
+  // Build SET clause dynamically
+  const setClause = Object.keys(updateData).map(key => `${key} = ?`).join(', ');
+  const values = Object.values(updateData);
+  // Update invoice where estimation_id matches
+  await db.query(
+    `UPDATE invoices SET ${setClause} WHERE estimation_id = ?`,
+    [...values, estimationId]
+  );
+  // Return the updated invoice
+  const [rows]: [any[], any] = await db.query('SELECT * FROM invoices WHERE estimation_id = ? LIMIT 1', [estimationId]);
+  return rows[0];
+}
 import db from '../db';
 
 export async function createInvoice(invoice: any) {

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Joi from 'joi';
 import { createInvoice, getInvoices } from '../queries/invoiceQueries';
+import { updateInvoiceByEstimationId } from '../queries/invoiceQueries';
 import { getEstimationById } from '../queries/estimationQueries';
 import { generateInvoicePDF } from '../utils/invoicegenerate';
 import { invoiceValidation } from '../utils/validations';
@@ -25,21 +26,28 @@ export const createTaxInvoice = async (req: Request, res: Response) => {
 
     // Prefill all fields from estimation, but allow user to override amount and product_description
     const invoiceToInsert = {
-  ...estimation,
-  estimation_id: estimationId,
-  invoiceDate: req.body.invoiceDate,
-  amount,
-  product_description: product_description !== undefined ? product_description : estimation.product_description
-};
+      ...estimation,
+      estimation_id: estimationId,
+      invoiceDate: req.body.invoiceDate,
+      amount,
+      product_description: product_description !== undefined ? product_description : estimation.product_description
+    };
 
-
-    // Insert invoice
-    const invoice = await createInvoice(invoiceToInsert);
-    res.status(201).json(invoice);
+    // Check if invoice already exists for this estimation
+    const [rows]: [any[], any] = await (await import('../db')).db.query('SELECT * FROM invoices WHERE estimation_id = ?', [estimationId]);
+    if (rows && rows.length > 0) {
+      // Update existing invoice
+      const updatedInvoice = await updateInvoiceByEstimationId(estimationId, invoiceToInsert);
+      return res.status(200).json(updatedInvoice);
+    } else {
+      // Insert new invoice
+      const invoice = await createInvoice(invoiceToInsert);
+      return res.status(201).json(invoice);
+    }
   } catch (err) {
-    console.error('Create Invoice Error:', err);
+    console.error('Create/Update Invoice Error:', err);
     const errorMessage = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: 'Failed to create invoice', details: errorMessage });
+    res.status(500).json({ error: 'Failed to create or update invoice', details: errorMessage });
   }
 };
 
