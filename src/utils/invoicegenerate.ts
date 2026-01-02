@@ -76,6 +76,10 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
         resolve(pdfData);
       });
 
+
+      // === Add QR Code to the right of company bank details ===
+      // We'll draw the QR code after the bank details block
+
       // Authorised Signatory at bottom, moved slightly left
       const pageHeight = doc.page.height;
       const signX = 320; // moved slightly right from 270
@@ -112,26 +116,41 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
       infoY += 13;
       doc.font('Helvetica-Bold').text('www.solarhutsolutions.in', infoX, infoY, { align: 'right', width: 230 });
   // Add horizontal line below logo and company info
-  doc.moveTo(40, infoY + 20).lineTo(555, infoY + 20).strokeColor('#888888').lineWidth(1).stroke();
+  // doc.moveTo(40, infoY + 20).lineTo(555, infoY + 20).strokeColor('#888888').lineWidth(1).stroke();
 
       // === Invoice Title ===
       doc.fontSize(20).font('Helvetica-Bold').fillColor('#FF6B00').text('INVOICE', 0, 120, { align: 'center', width: doc.page.width });
 
-      // === Invoice/Customer/Date Table ===
-      const tableY = 160;
+      // === Invoice/Customer/Date Table (labels and values inline) ===
+      const tableY = 140; // moved up from 160
       doc.rect(40, tableY, 180, 30).fillAndStroke('#F5F5F5', '#888888');
       doc.rect(220, tableY, 150, 30).fillAndStroke('#F5F5F5', '#888888');
       doc.rect(370, tableY, 200, 30).fillAndStroke('#F5F5F5', '#888888');
-      doc.fontSize(10).fillColor('#000').font('Helvetica-Bold')
-        .text('Invoice No.', 45, tableY + 5, { width: 170 })
-        .text('Date', 225, tableY + 5, { width: 140 })
-        .text('Reference No.', 375, tableY + 5, { width: 190 });
-      // Reference No. is the estimation id in the format SHS25-XXXXXX (same as estimation PDF)
+
+      doc.fontSize(10).fillColor('#000').font('Helvetica-Bold');
+      // Invoice No. label and value inline (value bold)
+      let x = 45, y = tableY + 10;
+      doc.text('Invoice No: ', x, y, { continued: true });
+      doc.font('Helvetica-Bold').text('INV' + String(invoice.id).padStart(6, '0'), { continued: false });
+
+      // Date label and value inline (value bold, format: 01 Jan 2025)
+      x = 225;
+      doc.font('Helvetica-Bold').text('Date: ', x, y, { continued: true });
+      let formattedDate = '';
+      if (invoice.invoiceDate) {
+        const dateObj = new Date(invoice.invoiceDate);
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const month = dateObj.toLocaleString('en-GB', { month: 'short' });
+        const year = dateObj.getFullYear();
+        formattedDate = `${day} ${month} ${year}`;
+      }
+      doc.font('Helvetica-Bold').text(formattedDate, { continued: false });
+
+      // Reference No. label and value inline (value bold)
+      x = 375;
       const referenceNo = invoice.estimation_id ? `SHS25-${String(invoice.estimation_id).padStart(6, '0')}` : '';
-      doc.font('Helvetica').fontSize(10)
-        .text('INV' + String(invoice.id).padStart(6, '0'), 45, tableY + 17, { width: 170 })
-        .text(invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString('en-GB') : '', 225, tableY + 17, { width: 140 })
-        .text(referenceNo, 375, tableY + 17, { width: 190 });
+      doc.font('Helvetica-Bold').text('Reference No: ', x, y, { continued: true });
+      doc.font('Helvetica-Bold').text(referenceNo, { continued: false });
 
       // === Consignee (Ship to) and Bill To blocks ===
       const blockTop = tableY + 45;
@@ -153,18 +172,15 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
 
       // === Product Table ===
       const prodTableY = tableY + 140;
-      // Table columns: Product Description | Quantity | Total Capacity | Amount
-      // Adjusted to fit A4 page width (595pt) with 40pt left margin and 40pt right margin
-      const tableLeft = 40;
-      const tableWidth = 595 - 2 * tableLeft;
-      const col1W = Math.round(tableWidth * 0.44); // Product Description
-      const colQtyW = Math.round(tableWidth * 0.16); // Quantity
-      const col2W = Math.round(tableWidth * 0.18); // Total Capacity
-      const col3W = tableWidth - col1W - colQtyW - col2W; // Amount (remaining)
-      const col1X = tableLeft;
+      // Product table columns aligned to invoice no/date/reference table (x=40, width=530, ends at x=570)
+      const col1X = 40;
+      const col1W = 240; // Increased Product Description width
       const colQtyX = col1X + col1W;
+      const colQtyW = 80; // Reduced Quantity width
       const col2X = colQtyX + colQtyW;
+      const col2W = 100;
       const col3X = col2X + col2W;
+      const col3W = 110; // Adjusted to fill up to x=570
       const rowH = 28;
       // Header
       doc.rect(col1X, prodTableY, col1W, rowH).fillAndStroke('#E0E0E0', '#888888'); // Product Description
@@ -224,7 +240,12 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
         .font('Helvetica-Bold').text(numberToWords(totalAmount), { width: 495 });
 
       // Company's Bank Details (custom content)
+
       let bankY = rowY + rowH + 35;
+      const bankBlockWidth = 320;
+      const qrWidth = 120;
+      const qrHeight = 140;
+      // Draw bank details on the left
       doc.font('Helvetica-Bold').fontSize(12).fillColor('#FF6B00').text("Company's Bank Details", 40, bankY);
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#333')
         .text('Bank Name: State Bank of India', 40, bankY + 20)
@@ -233,9 +254,22 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
         .text('IFSC: SBIN0012948', 40, bankY + 65)
         .text('Branch: Pantakalava Road, Vijayawada.', 40, bankY + 80);
 
-      // Declaration section (moved after bank details)
+      // Draw QR code to the right of bank details
+      try {
+        const qrX = 40 + bankBlockWidth + 30; // 30px gap after bank details
+        const qrY = bankY; // align top with bank details
+        doc.image(path.join(__dirname, '../assets/solarpaymentqrcode.jpg'), qrX, qrY, { width: qrWidth, height: qrHeight });
+      } catch (e) {
+        // If QR code image fails, continue without it
+      }
+
+      // === UPI Details Section (now after Bank Details) ===
+      const upiY = bankY + 100 + 10; // 100 for last bank line, 10px gap (moved up)
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('UPI ID:', 40, upiY, { continued: true });
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#FF6B00').text(' solarhutsolutionsllp@sbi');
+
       // Terms & Conditions section (replaces Declaration)
-      const termsY = bankY + 110;
+      const termsY = bankY + 150; // moved further down to avoid QR code overlap
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Terms & Conditions:', 40, termsY);
       doc.font('Helvetica').fontSize(10).fillColor('#333');
       const terms = [
