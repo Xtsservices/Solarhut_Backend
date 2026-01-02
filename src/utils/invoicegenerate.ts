@@ -157,7 +157,7 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
       // Consignee (Ship to) - left side (dynamic customer details)
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Ship to:', 40, blockTop);
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#333')
-        .text(`${invoice.customer_name} Garu,`, 40, blockTop + 18)
+        .text(`${invoice.customer_name}`, 40, blockTop + 18)
         .text(`${invoice.door_no || ''}, ${invoice.area || ''}, ${invoice.city || ''}`, 40, blockTop + 33)
         .text(`${invoice.district || ''}, ${invoice.state || ''} - ${invoice.pincode || ''}`, 40, blockTop + 48)
         .text(`Ph: ${invoice.mobile || ''}`, 40, blockTop + 63);
@@ -165,7 +165,7 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
       const billToX = 320;
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Bill To:', billToX, blockTop);
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#333')
-        .text(`${invoice.customer_name} Garu,`, billToX, blockTop + 18)
+        .text(`${invoice.customer_name}`, billToX, blockTop + 18)
         .text(`${invoice.door_no || ''}, ${invoice.area || ''}, ${invoice.city || ''}`, billToX, blockTop + 33)
         .text(`${invoice.district || ''}, ${invoice.state || ''} - ${invoice.pincode || ''}`, billToX, blockTop + 48)
         .text(`Ph: ${invoice.mobile || ''}`, billToX, blockTop + 63);
@@ -269,7 +269,7 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#FF6B00').text(' solarhutsolutionsllp@sbi');
 
       // Terms & Conditions section (replaces Declaration)
-      const termsY = bankY + 150; // moved further down to avoid QR code overlap
+      const termsY = bankY + 130; // moved up by reducing margin
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Terms & Conditions:', 40, termsY);
       doc.font('Helvetica').fontSize(10).fillColor('#333');
       const terms = [
