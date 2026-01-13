@@ -397,7 +397,7 @@ const getMyLeadsCounts = async (employeeId: number, connection?: PoolConnection)
             COUNT(*) as total,
             SUM(CASE WHEN l.status IN ('New', 'Assigned') THEN 1 ELSE 0 END) as assigned,
             SUM(CASE WHEN l.status IN ('In Progress', 'Follow Up') THEN 1 ELSE 0 END) as ongoing,
-            SUM(CASE WHEN l.status IN ('Converted', 'Closed', 'Lost') THEN 1 ELSE 0 END) as closed
+            SUM(CASE WHEN l.status IN ('Complete', 'Completed', 'Closed', 'Converted', 'Lost', 'Cancelled') THEN 1 ELSE 0 END) as closed
          FROM leads l
          WHERE l.assigned_to = ? AND l.status != 'Rejected'`,
         [employeeId]
