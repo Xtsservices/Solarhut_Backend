@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS leads (
   email VARCHAR(100),
   service_type ENUM('Installation', 'Maintenance') NOT NULL,
   solar_service ENUM('Residential Solar', 'Commercial Solar', 'Industrial Solar') NOT NULL,
-  status ENUM('New','Assigned','In Progress','Closed','Rejected','Complete','Cancelled') NOT NULL DEFAULT 'New',
+  status ENUM('New','Assigned','In Progress','Closed','Rejected','Completed','Cancelled') NOT NULL DEFAULT 'New',
   capacity VARCHAR(50),
   message TEXT,
   location VARCHAR(255) NOT NULL,
@@ -522,6 +522,47 @@ CREATE TABLE IF NOT EXISTS invoices (
 )
 `;
 
+const createTaxInvoicesTable = `
+CREATE TABLE IF NOT EXISTS tax_invoices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  estimation_id INT NOT NULL,
+  invoiceDate DATE NOT NULL,
+  customer_name VARCHAR(200) NOT NULL,
+  door_no VARCHAR(50) NOT NULL,
+  area VARCHAR(100) NOT NULL,
+  city VARCHAR(100) NOT NULL,
+  district VARCHAR(100) NOT NULL,
+  state VARCHAR(100) NOT NULL,
+  pincode VARCHAR(10) NOT NULL,
+  mobile VARCHAR(15) NOT NULL,
+  structure VARCHAR(100),
+  product_description TEXT,
+  requested_watts TEXT,
+  gst DECIMAL(5,2) DEFAULT 18.00,
+  amount DECIMAL(12,2) NOT NULL,
+  cgst_value DECIMAL(12,2) DEFAULT 0.00,
+  cgst_percentage DECIMAL(5,2) DEFAULT 0.00,
+  sgst_value DECIMAL(12,2) DEFAULT 0.00,
+  sgst_percentage DECIMAL(5,2) DEFAULT 0.00,
+  igst_value DECIMAL(12,2) DEFAULT 0.00,
+  igst_percentage DECIMAL(5,2) DEFAULT 0.00,
+  created_by INT,
+  updated_by INT,
+  status ENUM('Active','Inactive') DEFAULT 'Active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_customer_name (customer_name),
+  INDEX idx_mobile (mobile),
+  INDEX idx_district (district),
+  INDEX idx_state (state),
+  INDEX idx_pincode (pincode),
+  INDEX idx_status (status),
+  INDEX idx_created_by (created_by),
+  INDEX idx_updated_by (updated_by),
+  INDEX idx_created_at (created_at)
+)
+`;
+
 
 const insertDefaultRoles = async () => {
   const defaultRoles = [
@@ -873,6 +914,7 @@ export const initializeDatabase = async () => {
     await db.execute(createJobLocationsTable);
     await db.execute(createEstimationsTable);
     await db.execute(createInvoicesTable);
+    await db.execute(createTaxInvoicesTable);
 
     // Run migrations for existing tables
     await migrateJobAssignmentsTable();

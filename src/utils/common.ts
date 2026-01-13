@@ -14,7 +14,8 @@ export const allFeatures =[
   "Jobs",
   "My_Tasks",
   "Estimations",
-  "Tax_Invoices",
+  "Invoices",
+  "Tax_Invoices"
 ];
 
 //AboutPage.jpg

@@ -145,11 +145,17 @@ export const editCountry = async (req: Request, res: Response) => {
             }
 
             // Check if new country name already exists (only if name is being updated)
-            if (value.name && value.name !== existingCountry.name) {
-                const duplicateCountryByName = await countryQueries.getCountryByName(value.name, connection);
+            // Convert to uppercase to match database storage format
+            if (value.name && value.name.toUpperCase() !== existingCountry.name) {
+                const duplicateCountryByName = await countryQueries.getCountryByName(value.name.toUpperCase(), connection);
                 if (duplicateCountryByName) {
                     throw new Error('Country name already exists. Please choose a different country name.');
                 }
+            }
+
+            // Convert name to uppercase before updating if provided
+            if (value.name) {
+                value.name = value.name.toUpperCase();
             }
 
             // Update the country

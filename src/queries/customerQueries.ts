@@ -27,15 +27,14 @@ export const createCustomer = async (
     const conn = connection || db;
     const [result] = await conn.execute(
         `INSERT INTO customers (
-            customer_code, first_name, last_name, full_name, mobile, email,
+            customer_code, first_name, last_name, mobile, email,
             alternate_mobile, date_of_birth, gender, customer_type, company_name,
             gst_number, pan_number, lead_source, notes, status, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             customerData.customer_code,
             customerData.first_name,
             customerData.last_name || null,
-            customerData.full_name || null,
             customerData.mobile,
             customerData.email || null,
             customerData.alternate_mobile || null,

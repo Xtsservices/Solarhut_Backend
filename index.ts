@@ -24,6 +24,7 @@ import statsRoutes from './src/routes/statsRoutes';
 import paymentsStatsRoutes from './src/routes/paymentsStatsRoutes';
 import estimationRoutes from './src/routes/estimationRoutes';
 import taxInvoiceRoutes from './src/routes/taxInvoiceRoutes';
+import invoiceRoutes from './src/routes/invoiceRoutes';
 const paymentsSummaryRoutes = require('./src/routes/paymentsSummaryRoutes').default;
 const summaryGraphRoutes = require('./src/routes/summaryGraphRoutes').default;
 
@@ -158,7 +159,8 @@ const initApp = async () => {
     app.use('/api/jobs', jobRoutes);
     app.use('/api/mytasks', myTasksRoutes);
     app.use('/api/estimations', estimationRoutes);
-    app.use('/api/invoices', taxInvoiceRoutes);
+    app.use('/api/invoices', invoiceRoutes);
+    app.use('/api/taxinvoices', taxInvoiceRoutes);
     // Mount new dashboard/statistics routes
     app.use('/api/stats', statsRoutes);
     

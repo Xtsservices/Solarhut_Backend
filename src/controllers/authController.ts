@@ -4,7 +4,7 @@ import * as otpQueries from '../queries/otpQueries';
 import * as permissionQueries from '../queries/permissionQueries';
 import { generateToken } from '../utils/authUtils';
 import { generateOTP, sendSMS, formatMobile } from '../utils/otpUtils';
-import { sendOTPSMS } from '../utils/smsUtils';
+
 import { TokenPayload } from '../interfaces/auth';
 
 export const requestOTP = async (req: Request, res: Response) => {
@@ -45,27 +45,35 @@ export const requestOTP = async (req: Request, res: Response) => {
 
         // Send OTP via SMS with user details
         console.log(`Sending OTP to ${employee.first_name} ${employee.last_name} at ${formattedMobile}`);
-        try {
-            const smsResult = await sendOTPSMS(employee.first_name, employee.last_name, formattedMobile, otp);
-            console.log('SMS sent successfully:', smsResult);
-            
-            res.json({
-                success: true,
-                message: 'OTP sent successfully. Valid for 3 minutes',
-                debug: {
-                    mobile: formattedMobile,
-                    smsApiResponse: smsResult
-                }
-            });
-        } catch (smsError) {
-            console.error('SMS sending failed:', smsError);
-            // Still save OTP to database even if SMS fails for testing
-            res.json({
-                success: false,
-                message: 'OTP generated but SMS delivery failed. Please try again.',
-                error: smsError instanceof Error ? smsError.message : 'SMS delivery failed'
-            });
-        }
+        // try {
+        //     const smsResult = await sendOTPSMS(employee.first_name, employee.last_name, formattedMobile, otp);
+        //     console.log('SMS sent successfully:', smsResult);
+        //     
+        //     res.json({
+        //         success: true,
+        //         message: 'OTP sent successfully. Valid for 3 minutes',
+        //         debug: {
+        //             mobile: formattedMobile,
+        //             smsApiResponse: smsResult
+        //         }
+        //     });
+        // } catch (smsError) {
+        //     console.error('SMS sending failed:', smsError);
+        //     // Still save OTP to database even if SMS fails for testing
+        //     res.json({
+        //         success: false,
+        //         message: 'OTP generated but SMS delivery failed. Please try again.',
+        //         error: smsError instanceof Error ? smsError.message : 'SMS delivery failed'
+        //     });
+        // }
+        res.json({
+            success: true,
+            message: 'OTP generated (SMS sending disabled for testing)',
+            debug: {
+                mobile: formattedMobile,
+                otp
+            }
+        });
     } catch (error) {
         console.error('Error in requestOTP:', error);
         res.status(500).json({

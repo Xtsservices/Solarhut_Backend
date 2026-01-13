@@ -306,10 +306,31 @@ export const getLeadStats = async (req: Request, res: Response) => {
 export const updateLeadStatus = async (req: Request, res: Response) => {
     try {
         const leadId = parseInt(req.params.id);
-        const { status } = req.body;
+        let { status } = req.body;
 
-    const validStatuses = ['New', 'Assigned', 'In Progress', 'Closed', 'Rejected', 'Complete', 'Cancelled'];
-        if (!validStatuses.includes(status)) {
+        const validStatuses = ['New', 'Assigned', 'In Progress', 'Closed', 'Rejected', 'Complete', 'Completed', 'Cancelled'];
+        
+        // Normalize status: handle case-insensitive and common variations
+        if (status && typeof status === 'string') {
+            const lowerStatus = status.toLowerCase().trim();
+            
+            // Find matching status (case-insensitive)
+            let matchedStatus = validStatuses.find(s => s.toLowerCase() === lowerStatus);
+            
+            // Handle "Completed" -> "Complete" conversion
+            if (matchedStatus === 'Completed') {
+                matchedStatus = 'Complete';
+            }
+            
+            if (matchedStatus) {
+                status = matchedStatus;
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid status. Valid values: ${validStatuses.join(', ')}`
+                });
+            }
+        } else {
             return res.status(400).json({
                 success: false,
                 message: `Invalid status. Valid values: ${validStatuses.join(', ')}`

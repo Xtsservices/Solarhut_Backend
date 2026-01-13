@@ -89,26 +89,30 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         const pendingJobsRows = pendingJobsRowsRaw as any[];
         const pendingJobs = pendingJobsRows[0]?.count || 0;
 
+        // Calculate pending payments using amount field (original amount, excluding discount)
         const [pendingPaymentsRowsRaw] = await db.execute(
-            `SELECT IFNULL(SUM(amount),0) as total FROM job_payments WHERE payment_status = 'Pending'`
+            `SELECT IFNULL(SUM(amount), 0) as total FROM job_payments WHERE payment_status = 'Pending'`
         );
         const pendingPaymentsRows = pendingPaymentsRowsRaw as any[];
         const pendingPayments = pendingPaymentsRows[0]?.total || 0;
 
+        // Calculate today's revenue using amount field (original amount, excluding discount)
         const [todayRevenueRowsRaw] = await db.execute(
-            `SELECT IFNULL(SUM(amount),0) as total FROM job_payments WHERE payment_status = 'Completed' AND DATE(payment_date) = CURDATE()`
+            `SELECT IFNULL(SUM(amount), 0) as total FROM job_payments WHERE payment_status = 'Completed' AND DATE(payment_date) = CURDATE()`
         );
         const todayRevenueRows = todayRevenueRowsRaw as any[];
         const todayRevenue = todayRevenueRows[0]?.total || 0;
 
+        // Calculate week's revenue using amount field (original amount, excluding discount)
         const [weekRevenueRowsRaw] = await db.execute(
-            `SELECT IFNULL(SUM(amount),0) as total FROM job_payments WHERE payment_status = 'Completed' AND YEARWEEK(payment_date, 1) = YEARWEEK(CURDATE(), 1)`
+            `SELECT IFNULL(SUM(amount), 0) as total FROM job_payments WHERE payment_status = 'Completed' AND YEARWEEK(payment_date, 1) = YEARWEEK(CURDATE(), 1)`
         );
         const weekRevenueRows = weekRevenueRowsRaw as any[];
         const weekRevenue = weekRevenueRows[0]?.total || 0;
 
+        // Calculate month's revenue using amount field (original amount, excluding discount)
         const [monthRevenueRowsRaw] = await db.execute(
-            `SELECT IFNULL(SUM(amount),0) as total FROM job_payments WHERE payment_status = 'Completed' AND YEAR(payment_date) = YEAR(CURDATE()) AND MONTH(payment_date) = MONTH(CURDATE())`
+            `SELECT IFNULL(SUM(amount), 0) as total FROM job_payments WHERE payment_status = 'Completed' AND YEAR(payment_date) = YEAR(CURDATE()) AND MONTH(payment_date) = MONTH(CURDATE())`
         );
         const monthRevenueRows = monthRevenueRowsRaw as any[];
         const monthRevenue = monthRevenueRows[0]?.total || 0;
