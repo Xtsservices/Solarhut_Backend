@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as featureQueries from '../queries/featureQueries';
+import * as permissionQueries from '../queries/permissionQueries';
 import { featureSchema } from '../utils/validations';
 import { allFeatures } from '../utils/common';
 
@@ -20,16 +21,22 @@ export const createFeature = async (req: Request, res: Response) => {
             return res.status(401).json({ success: false, message: 'User information not found' });
         }
 
+        // Set default status if not provided
+        const status = value.status || 'Active';
+
         // Check if feature name already exists
         const existingFeature = await featureQueries.getFeatureByName(value.feature_name);
         if (existingFeature) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Feature name already exists. Please choose a different Feature name.' 
-            });
+            // Update the status of the existing feature instead of throwing an error
+            const updated = await featureQueries.updateFeature(existingFeature.id, { status });
+            if (!updated) {
+                return res.status(400).json({ success: false, message: 'Failed to update feature status' });
+            }
+            const feature = await featureQueries.getFeatureById(existingFeature.id);
+            return res.json({ success: true, message: 'Feature status updated', data: feature });
         }
 
-        const id = await featureQueries.createFeature(value.feature_name, user.id, value.status);
+        const id = await featureQueries.createFeature(value.feature_name, user.id, status);
         const feature = await featureQueries.getFeatureById(id);
 
         res.status(201).json({ success: true, message: 'Feature created', data: feature });
@@ -160,9 +167,19 @@ export const listMyFeatures = async (req: Request, res: Response) => {
             return res.status(401).json({ success: false, message: 'User information not found' });
         }
 
-        const onlyActive = req.query.active === 'true';
-        const features = await featureQueries.getFeaturesByUser(user.id, onlyActive);
-        res.json({ success: true, data: features });
+        // Get features based on the user's role permissions (not features they created)
+        const featureNames = await permissionQueries.getEmployeePermissions(user.id);
+        
+        // If no features found, return empty array
+        if (!featureNames || featureNames.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        // Get full feature details for the allowed features
+        const allFeaturesData = await featureQueries.getAllFeatures(true); // Only active features
+        const userFeatures = allFeaturesData.filter(f => featureNames.includes(f.feature_name));
+        
+        res.json({ success: true, data: userFeatures });
     } catch (err) {
         console.error('Error listing user features:', err);
         res.status(500).json({ 

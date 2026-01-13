@@ -1,5 +1,17 @@
 import Joi from 'joi';
 
+
+// Tax Invoice Joi Validation
+export const taxInvoiceValidation = Joi.object({
+    estimationId: Joi.number().required(),
+    invoiceDate: Joi.date().required(),
+    amount: Joi.number().min(0).required(),
+    product_description: Joi.string().allow('', null),
+    gst_percentage: Joi.number().min(0).max(100).required(),
+    structure: Joi.string().allow('', null)
+});
+
+
 export const invoiceValidation = Joi.object({
     estimationId: Joi.number().required(),
     invoiceDate: Joi.date().required(),

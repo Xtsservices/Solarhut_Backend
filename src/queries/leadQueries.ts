@@ -13,7 +13,7 @@ export interface Lead extends RowDataPacket {
     email?: string;
     service_type: 'Installation' | 'Maintenance';
     solar_service: 'Residential Solar' | 'Commercial Solar' | 'Industrial Solar';
-    status: 'New' | 'Assigned' | 'In Progress' | 'Closed' | 'Rejected';
+    status: 'New' | 'Assigned' | 'In Progress' | 'Closed' | 'Rejected' | 'Complete' | 'Cancelled';
     capacity: string;
     message: string;
     location: string;
