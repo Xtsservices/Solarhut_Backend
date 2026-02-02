@@ -180,7 +180,7 @@ export async function generateTaxInvoicePDF(invoiceData: any): Promise<Buffer> {
       doc.moveTo(rightTableX, rowY + standardRowHeight).lineTo(rightTableX + rightTableWidth, rowY + standardRowHeight).lineWidth(0.5).stroke(); // bottom
       
       doc.font('Helvetica-Bold').fontSize(9.28).text('Tax-Invoice No.', rightTableX + 4, rowY + 3, { width: rightTableWidth / 2 - 8 });
-      doc.font('Helvetica-Bold').fontSize(9.19).text(invoice.id ? String(invoice.id) : '', rightTableX + 4, rowY + 11, { width: rightTableWidth / 2 - 8 });
+      doc.font('Helvetica-Bold').fontSize(9.19).text(invoice.tax_invoice_number || (invoice.id ? String(invoice.id).padStart(6, '0') : ''), rightTableX + 4, rowY + 11, { width: rightTableWidth / 2 - 8 });
       
       doc.font('Helvetica-Bold').fontSize(9.19).text('Date', rightMid + 4, rowY + 3, { width: rightTableWidth / 2 - 8 });
       let invoiceDate = '';

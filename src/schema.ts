@@ -491,6 +491,7 @@ const createInvoicesTable = `
 CREATE TABLE IF NOT EXISTS invoices (
     id INT AUTO_INCREMENT PRIMARY KEY,
     estimation_id INT NOT NULL,
+    invoice_number VARCHAR(10) UNIQUE,
     invoiceDate DATE NOT NULL,
     customer_name VARCHAR(200) NOT NULL,
     door_no VARCHAR(50) NOT NULL,
@@ -526,6 +527,7 @@ const createTaxInvoicesTable = `
 CREATE TABLE IF NOT EXISTS tax_invoices (
   id INT AUTO_INCREMENT PRIMARY KEY,
   estimation_id INT NOT NULL,
+  tax_invoice_number VARCHAR(10) UNIQUE,
   invoiceDate DATE NOT NULL,
   customer_name VARCHAR(200) NOT NULL,
   door_no VARCHAR(50) NOT NULL,
@@ -927,13 +929,13 @@ export const initializeDatabase = async () => {
     await insertDefaultRoles();
 
     // Insert default countries if they don't exist
-    // await insertDefaultCountries();
+    await insertDefaultCountries();
 
-    // // Insert default states if they don't exist
-    // await insertDefaultStates();
+    // Insert default states if they don't exist
+    await insertDefaultStates();
 
-    // // Insert default districts if they don't exist
-    // await insertDefaultDistricts();
+    // Insert default districts if they don't exist
+    await insertDefaultDistricts();
 
     console.log("Database tables initialized successfully with default data");
   } catch (error) {

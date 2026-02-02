@@ -20,19 +20,23 @@ export const createTaxInvoice = async (req: Request, res: Response) => {
     if (!estimation) {
       return res.status(404).json({ error: 'Estimation not found' });
     }
-    // Calculate GST splits
+    // Calculate GST splits - amount is total including GST
     let cgst_percentage = 0, sgst_percentage = 0, igst_percentage = 0;
     let cgst_value = 0, sgst_value = 0, igst_value = 0;
+    
+    // Calculate base amount (excluding GST) from total amount (including GST)
+    const baseAmount = amount / (1 + (gst_percentage / 100));
+    
     if (estimation.state && estimation.state.toLowerCase() === 'andhra pradesh') {
       // Intra-state: split equally between CGST and SGST
       cgst_percentage = gst_percentage / 2;
       sgst_percentage = gst_percentage / 2;
-      cgst_value = (amount * cgst_percentage) / 100;
-      sgst_value = (amount * sgst_percentage) / 100;
+      cgst_value = Math.round(((baseAmount * cgst_percentage) / 100) * 100) / 100;
+      sgst_value = Math.round(((baseAmount * sgst_percentage) / 100) * 100) / 100;
     } else {
       // Inter-state: IGST only
       igst_percentage = gst_percentage;
-      igst_value = (amount * igst_percentage) / 100;
+      igst_value = Math.round(((baseAmount * igst_percentage) / 100) * 100) / 100;
     }
     const taxInvoiceToInsert = {
       estimation_id: estimationId,
