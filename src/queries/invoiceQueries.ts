@@ -1,6 +1,6 @@
 // --- TAX INVOICE QUERIES ---
 const validTaxInvoiceColumns = [
-  'estimation_id', 'invoiceDate', 'customer_name', 'door_no', 'area', 'city',
+  'estimation_id', 'invoiceDate', 'tax_invoice_number', 'customer_name', 'door_no', 'area', 'city',
   'district', 'state', 'pincode', 'mobile', 'structure', 'product_description',
   'requested_watts', 'gst', 'amount', 'cgst_value', 'cgst_percentage',
   'sgst_value', 'sgst_percentage', 'igst_value', 'igst_percentage',
@@ -8,6 +8,11 @@ const validTaxInvoiceColumns = [
 ];
 
 export async function createTaxInvoice(taxInvoice: any) {
+  // Generate tax invoice number if not provided
+  if (!taxInvoice.tax_invoice_number) {
+    taxInvoice.tax_invoice_number = await getNextTaxInvoiceNumber();
+  }
+  
   // Filter only valid columns
   const keys: string[] = [];
   const values: any[] = [];
@@ -76,7 +81,30 @@ export async function updateInvoiceByEstimationId(estimationId: number, updateDa
 }
 import db from '../db';
 
+// Helper function to generate next invoice number
+export async function getNextInvoiceNumber(): Promise<string> {
+  const [rows]: [any[], any] = await db.query(
+    'SELECT MAX(CAST(invoice_number AS UNSIGNED)) as max_num FROM invoices WHERE invoice_number REGEXP "^[0-9]+$"'
+  );
+  const maxNum = rows[0]?.max_num || 0;
+  return String(maxNum + 1).padStart(6, '0');
+}
+
+// Helper function to generate next tax invoice number
+export async function getNextTaxInvoiceNumber(): Promise<string> {
+  const [rows]: [any[], any] = await db.query(
+    'SELECT MAX(CAST(tax_invoice_number AS UNSIGNED)) as max_num FROM tax_invoices WHERE tax_invoice_number REGEXP "^[0-9]+$"'
+  );
+  const maxNum = rows[0]?.max_num || 0;
+  return String(maxNum + 1).padStart(6, '0');
+}
+
 export async function createInvoice(invoice: any) {
+  // Generate invoice number if not provided
+  if (!invoice.invoice_number) {
+    invoice.invoice_number = await getNextInvoiceNumber();
+  }
+  
   // Insert invoice into DB (table: invoices)
   const [result]: any = await db.query(
     `INSERT INTO invoices (${Object.keys(invoice).join(",")}) VALUES (${Object.values(invoice).map(() => '?').join(",")})`,

@@ -131,7 +131,7 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
       // Invoice No. label and value inline (value bold)
       let x = 45, y = tableY + 10;
       doc.text('Invoice No: ', x, y, { continued: true });
-      doc.font('Helvetica-Bold').text('INV' + String(invoice.id).padStart(6, '0'), { continued: false });
+      doc.font('Helvetica-Bold').text(invoice.invoice_number || String(invoice.id).padStart(6, '0'), { continued: false });
 
       // Date label and value inline (value bold, format: 01 Jan 2025)
       x = 225;
@@ -148,30 +148,74 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
 
       // Reference No. label and value inline (value bold)
       x = 375;
-      const referenceNo = invoice.estimation_id ? `SHS25-${String(invoice.estimation_id).padStart(6, '0')}` : '';
+      const referenceNo = invoice.estimation_id ? String(invoice.estimation_id).padStart(6, '0') : '';
       doc.font('Helvetica-Bold').text('Reference No: ', x, y, { continued: true });
       doc.font('Helvetica-Bold').text(referenceNo, { continued: false });
 
       // === Consignee (Ship to) and Bill To blocks ===
       const blockTop = tableY + 45;
+      const blockWidth = 250; // Max width for each address block
+      
+      // Calculate address text heights dynamically
+      doc.font('Helvetica-Bold').fontSize(10);
+      const customerNameHeight = doc.heightOfString(invoice.customer_name || '', { width: blockWidth });
+      const address1 = `${invoice.door_no || ''}, ${invoice.area || ''}, ${invoice.city || ''}`;
+      const address1Height = doc.heightOfString(address1, { width: blockWidth });
+      const address2 = `${invoice.district || ''}, ${invoice.state || ''} - ${invoice.pincode || ''}`;
+      const address2Height = doc.heightOfString(address2, { width: blockWidth });
+      const phoneHeight = doc.heightOfString(`Ph: ${invoice.mobile || ''}`, { width: blockWidth });
+      
+      // Calculate total height needed for address block
+      const titleHeight = 15; // Height for "Ship to:" and "Bill To:" titles
+      const lineSpacing = 3; // Reduced space between lines for better fit
+      const totalAddressHeight = titleHeight + customerNameHeight + lineSpacing + 
+                                address1Height + lineSpacing + address2Height + lineSpacing + phoneHeight + 10;
+      
+      // Ensure minimum space remains for the rest of the content
+      const remainingPageHeight = pageHeight - (blockTop + totalAddressHeight + 300); // 300px minimum for table + footer
+      const actualSpacing = remainingPageHeight > 0 ? lineSpacing : 2; // Reduce spacing if page is tight
+      const finalAddressHeight = remainingPageHeight > 0 ? totalAddressHeight : 
+                                titleHeight + customerNameHeight + actualSpacing + 
+                                address1Height + actualSpacing + address2Height + actualSpacing + phoneHeight + 10;
+      
       // Consignee (Ship to) - left side (dynamic customer details)
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Ship to:', 40, blockTop);
+      let currentY = blockTop;
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Ship to:', 40, currentY);
+      currentY += titleHeight;
+      
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#333')
-        .text(`${invoice.customer_name}`, 40, blockTop + 18)
-        .text(`${invoice.door_no || ''}, ${invoice.area || ''}, ${invoice.city || ''}`, 40, blockTop + 33)
-        .text(`${invoice.district || ''}, ${invoice.state || ''} - ${invoice.pincode || ''}`, 40, blockTop + 48)
-        .text(`Ph: ${invoice.mobile || ''}`, 40, blockTop + 63);
+        .text(invoice.customer_name || '', 40, currentY, { width: blockWidth });
+      currentY += customerNameHeight + actualSpacing;
+      
+      doc.text(address1, 40, currentY, { width: blockWidth });
+      currentY += address1Height + actualSpacing;
+      
+      doc.text(address2, 40, currentY, { width: blockWidth });
+      currentY += address2Height + actualSpacing;
+      
+      doc.text(`Ph: ${invoice.mobile || ''}`, 40, currentY, { width: blockWidth });
+      
       // Bill To - right side
       const billToX = 320;
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Bill To:', billToX, blockTop);
+      currentY = blockTop; // Reset Y position for right side
+      
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#000').text('Bill To:', billToX, currentY);
+      currentY += titleHeight;
+      
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#333')
-        .text(`${invoice.customer_name}`, billToX, blockTop + 18)
-        .text(`${invoice.door_no || ''}, ${invoice.area || ''}, ${invoice.city || ''}`, billToX, blockTop + 33)
-        .text(`${invoice.district || ''}, ${invoice.state || ''} - ${invoice.pincode || ''}`, billToX, blockTop + 48)
-        .text(`Ph: ${invoice.mobile || ''}`, billToX, blockTop + 63);
+        .text(invoice.customer_name || '', billToX, currentY, { width: blockWidth });
+      currentY += customerNameHeight + actualSpacing;
+      
+      doc.text(address1, billToX, currentY, { width: blockWidth });
+      currentY += address1Height + actualSpacing;
+      
+      doc.text(address2, billToX, currentY, { width: blockWidth });
+      currentY += address2Height + actualSpacing;
+      
+      doc.text(`Ph: ${invoice.mobile || ''}`, billToX, currentY, { width: blockWidth });
 
       // === Product Table ===
-      const prodTableY = tableY + 140;
+      const prodTableY = blockTop + finalAddressHeight + 20; // Dynamic positioning based on address height
       // Product table columns aligned to invoice no/date/reference table (x=40, width=530, ends at x=570)
       const col1X = 40;
       const col1W = 240; // Increased Product Description width
@@ -193,10 +237,11 @@ export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
         .text('Total Capacity', col2X + 5, prodTableY + 8, { width: col2W - 10, align: 'center' })
         .text('Amount', col3X + 5, prodTableY + 8, { width: col3W - 10, align: 'right' });
       // Row
-      const baseAmount = typeof invoice.amount === 'string' ? parseFloat(invoice.amount) : invoice.amount;
+      const totalAmount = typeof invoice.amount === 'string' ? parseFloat(invoice.amount) : invoice.amount;
       const gstRate = typeof invoice.gst === 'string' ? parseFloat(invoice.gst) : invoice.gst;
-      const gstAmount = (baseAmount * gstRate) / 100;
-      const totalAmount = baseAmount + gstAmount;
+      // Calculate base amount (excluding GST) from total amount (including GST)
+      const baseAmount = Math.round((totalAmount / (1 + (gstRate / 100))) * 100) / 100;
+      const gstAmount = Math.round((totalAmount - baseAmount) * 100) / 100;
       let rowY = prodTableY + rowH;
       // Dynamically calculate row height based on product description
       doc.font('Helvetica').fontSize(10);
