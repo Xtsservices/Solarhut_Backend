@@ -1056,6 +1056,9 @@ export const initializeDatabase = async () => {
     await db.execute(createEstimationsTable);
     await db.execute(createInvoicesTable);
     await db.execute(createTaxInvoicesTable);
+    await db.execute(createInverterTypesTable);
+    await db.execute(createProductDescriptionsTable);
+    await db.execute(createStructuresTable);
 
     // Run migrations for existing tables
     await migrateJobAssignmentsTable();
