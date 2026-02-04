@@ -13,7 +13,7 @@ import {
 const router = express.Router();
 
 // Create reusable middleware
-const requireSuperAdmin = authorizeRoles(['SuperAdmin']);
+// const requireSuperAdmin = authorizeRoles(['SuperAdmin']);
 
 // ===== SIMPLIFIED UNIFIED ROUTES =====
 
@@ -35,7 +35,6 @@ router.get(
 router.post(
   "/items",
   authenticate,
-  requireSuperAdmin,
   validateRequest(createSolarCapacitySchema),
   solarCapacityController.addItem
 );
@@ -44,7 +43,6 @@ router.post(
 router.put(
   "/items/:id",
   authenticate,
-  requireSuperAdmin,
   validateRequest(updateSolarCapacitySchema),
   solarCapacityController.updateItem
 );
@@ -53,7 +51,6 @@ router.put(
 router.delete(
   "/items/:id",
   authenticate,
-  requireSuperAdmin,
   solarCapacityController.deleteItem
 );
 
@@ -61,7 +58,6 @@ router.delete(
 router.post(
   "/:categoryType/items",
   authenticate,
-  requireSuperAdmin,
   validateRequest(createSolarCapacitySchema),
   solarCapacityController.addItemToCategory
 );
@@ -70,7 +66,6 @@ router.post(
 router.get(
   "/admin/all-items",
   authenticate,
-  requireSuperAdmin,
   solarCapacityController.getAllCategoryItems
 );
 
@@ -78,7 +73,6 @@ router.get(
 router.put(
   "/:categoryType/items/:id",
   authenticate,
-  requireSuperAdmin,
   validateRequest(updateSolarCapacitySchema),
   solarCapacityController.updateCategoryItem
 );
@@ -87,7 +81,6 @@ router.put(
 router.delete(
   "/:categoryType/items/:id",
   authenticate,
-  requireSuperAdmin,
   solarCapacityController.deleteCategoryItem
 );
 
