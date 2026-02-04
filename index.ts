@@ -27,6 +27,7 @@ import taxInvoiceRoutes from './src/routes/taxInvoiceRoutes';
 import invoiceRoutes from './src/routes/invoiceRoutes';
 import paymentsSummaryRoutes from './src/routes/paymentsSummaryRoutes';
 import summaryGraphRoutes from './src/routes/summaryGraphRoutes';
+import solarCapacityRoutes from './src/routes/solarCapacityRoutes';
 
 dotenv.config();
       
@@ -82,7 +83,7 @@ const initApp = async () => {
     
     // Ensure admin user exists (after tables are created)
     const { getAdminEmployeeByMobileOrEmail, createEmployee } = require('./src/queries/employeeQueries');
-    const adminMobile = '9701646859';
+    const adminMobile = '9046246290';
     const adminEmail = 'solarhutsolutions@gmail.com';
     const adminFirstName = 'Solarhut';
     const adminLastName = 'Admin';
@@ -164,6 +165,7 @@ const initApp = async () => {
     app.use('/api/estimations', estimationRoutes);
     app.use('/api/invoices', invoiceRoutes);
     app.use('/api/taxinvoices', taxInvoiceRoutes);
+    app.use('/api/solar-capacities', solarCapacityRoutes);
     // Mount new dashboard/statistics routes
     app.use('/api/stats', statsRoutes);
     

@@ -565,6 +565,46 @@ CREATE TABLE IF NOT EXISTS tax_invoices (
 )
 `;
 
+// Solar Capacities Tables
+const createInverterTypesTable = `
+CREATE TABLE IF NOT EXISTS inverter_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_by INT NOT NULL,
+    updated_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
+)`;
+
+const createProductDescriptionsTable = `
+CREATE TABLE IF NOT EXISTS product_descriptions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_by INT NOT NULL,
+    updated_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
+)`;
+
+const createStructuresTable = `
+CREATE TABLE IF NOT EXISTS structures (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_by INT NOT NULL,
+    updated_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
+)`;
+
 
 const insertDefaultRoles = async () => {
   const defaultRoles = [
@@ -755,6 +795,105 @@ const insertDefaultDistricts = async () => {
   }
 };
 
+const insertDefaultSolarCapacities = async () => {
+  try {
+    // Get a system user ID for created_by field
+    const [adminUsers] = await db.execute(
+      `SELECT e.id FROM employees e 
+       INNER JOIN employee_roles er ON e.id = er.employee_id 
+       INNER JOIN roles r ON er.role_id = r.role_id 
+       WHERE r.role_name IN ('Admin', 'SuperAdmin') AND e.status = 'Active' 
+       LIMIT 1`
+    ) as any;
+    
+    const systemUserId = adminUsers.length > 0 ? adminUsers[0].id : 1;
+
+    // Default Inverter Types from frontend
+    const defaultInverterTypes = [
+      "GroWatt TL-X2 (Pro) On Grid Tied Solar Invertor",
+      "WAAREE On Grid Tied Solar Inverter", 
+      "MicroTek On Grid Tied Solar Inverter",
+    ];
+
+    for (const inverterName of defaultInverterTypes) {
+      // Check if inverter type already exists
+      const [existingRows] = await db.execute(
+        'SELECT id FROM inverter_types WHERE name = ?',
+        [inverterName]
+      ) as any;
+
+      if (existingRows.length === 0) {
+        await db.execute(
+          'INSERT INTO inverter_types (name, status, created_by) VALUES (?, ?, ?)',
+          [inverterName, 'Active', systemUserId]
+        );
+        console.log(`Created default inverter type: ${inverterName}`);
+      } else {
+        console.log(`Inverter type ${inverterName} already exists, skipping...`);
+      }
+    }
+
+    // Default Product Descriptions (Solar Panels) from frontend
+    const defaultProductDescriptions = [
+      "Vikram Solar Panels 550w+ M10 Bifacial G2G HC DCR (3 KW)",
+      "Vikram Solar Panels 550w+ M10 Bifacial G2G HC DCR (4 KW)",
+      "Vikram Solar Panels 550w+ M10 Bifacial G2G HC DCR (5 KW)",
+      "Tata Solar Panels 560w+ Bifacial DCR (3 KW)",
+      "Tata Solar Panels 560w+ Bifacial DCR (4 KW)",
+      "Tata Solar Panels 560w+ Bifacial DCR (5 KW)",
+      "Premier Energies Panels 525w+ Bifacial DCR (3 KW)",
+      "Premier Energies Panels 525w+ Bifacial DCR (4 KW)",
+      "Premier Energies Panels 525w+ Bifacial DCR (5 KW)",
+    ];
+
+    for (const productName of defaultProductDescriptions) {
+      // Check if product description already exists
+      const [existingRows] = await db.execute(
+        'SELECT id FROM product_descriptions WHERE name = ?',
+        [productName]
+      ) as any;
+
+      if (existingRows.length === 0) {
+        await db.execute(
+          'INSERT INTO product_descriptions (name, status, created_by) VALUES (?, ?, ?)',
+          [productName, 'Active', systemUserId]
+        );
+        console.log(`Created default product description: ${productName}`);
+      } else {
+        console.log(`Product description ${productName} already exists, skipping...`);
+      }
+    }
+
+    // Default Structures from frontend
+    const defaultStructures = [
+      "Structure for the 3 KW Roof Top Solar Plant",
+      "Structure for the 4 KW Roof Top Solar Plant", 
+      "Structure for the 5 KW Roof Top Solar Plant",
+    ];
+
+    for (const structureName of defaultStructures) {
+      // Check if structure already exists
+      const [existingRows] = await db.execute(
+        'SELECT id FROM structures WHERE name = ?',
+        [structureName]
+      ) as any;
+
+      if (existingRows.length === 0) {
+        await db.execute(
+          'INSERT INTO structures (name, status, created_by) VALUES (?, ?, ?)',
+          [structureName, 'Active', systemUserId]
+        );
+        console.log(`Created default structure: ${structureName}`);
+      } else {
+        console.log(`Structure ${structureName} already exists, skipping...`);
+      }
+    }
+  } catch (error) {
+    console.error('Error inserting default solar capacities:', error);
+    // Don't throw error to prevent app startup failure
+  }
+};
+
 const migrateJobAssignmentsTable = async () => {
   try {
     // Check if job_assignments table exists and migrate role_type column to allow NULL
@@ -936,6 +1075,9 @@ export const initializeDatabase = async () => {
 
     // Insert default districts if they don't exist
     await insertDefaultDistricts();
+
+    // Insert default solar capacities if they don't exist
+    await insertDefaultSolarCapacities();
 
     console.log("Database tables initialized successfully with default data");
   } catch (error) {
