@@ -25,8 +25,8 @@ import paymentsStatsRoutes from './src/routes/paymentsStatsRoutes';
 import estimationRoutes from './src/routes/estimationRoutes';
 import taxInvoiceRoutes from './src/routes/taxInvoiceRoutes';
 import invoiceRoutes from './src/routes/invoiceRoutes';
-const paymentsSummaryRoutes = require('./src/routes/paymentsSummaryRoutes').default;
-const summaryGraphRoutes = require('./src/routes/summaryGraphRoutes').default;
+import paymentsSummaryRoutes from './src/routes/paymentsSummaryRoutes';
+import summaryGraphRoutes from './src/routes/summaryGraphRoutes';
 
 dotenv.config();
       
@@ -72,7 +72,15 @@ const createDbConnection = async () => {
 
 // Database initialization
 const initApp = async () => {
-    // Ensure admin user exists
+  try {
+    // Test database connection
+    await db.getConnection();
+    console.log('✅ Successfully connected to MySQL database');
+    
+    // Initialize database tables
+    await initializeDatabase();
+    
+    // Ensure admin user exists (after tables are created)
     const { getAdminEmployeeByMobileOrEmail, createEmployee } = require('./src/queries/employeeQueries');
     const adminMobile = '9701646859';
     const adminEmail = 'solarhutsolutions@gmail.com';
@@ -94,13 +102,6 @@ const initApp = async () => {
     } else {
       console.log('✅ Admin user already exists.');
     }
-  try {
-    // Test database connection
-    await db.getConnection();
-    console.log('✅ Successfully connected to MySQL database');
-    
-    // Initialize database tables
-    await initializeDatabase();
     
     // Start OTP cleanup scheduler (every 5 minutes)
     const startOTPCleanup = () => {
@@ -115,6 +116,7 @@ const initApp = async () => {
     
     // Initial cleanup on startup
     try {
+      console.log('🧹 Starting OTP cleanup...');
       await cleanupExpiredOTPs();
       startOTPCleanup();
       console.log('🕒 OTP cleanup scheduler started (runs every 5 minutes)');
@@ -122,6 +124,7 @@ const initApp = async () => {
       console.error('Error starting OTP cleanup:', error);
     }
 
+    console.log('🛣️  Setting up routes...');
     // Welcome route
     app.get('/', (req: Request, res: Response) => {
       res.json({
@@ -165,7 +168,6 @@ const initApp = async () => {
     app.use('/api/stats', statsRoutes);
     
     app.use('/api/profile', profileRoutes);
-    app.use('/api/stats', statsRoutes);
     app.use('/api/payments/stats', paymentsStatsRoutes);
     app.use('/api/payments', paymentsSummaryRoutes);
     app.use('/api/summary', summaryGraphRoutes);
@@ -182,7 +184,8 @@ const initApp = async () => {
     // Error handler
     app.use(errorHandler);
 
-    app.listen(port, '0.0.0.0', () => {
+    console.log('🔧 About to start server on port:', port);
+    const server = app.listen(port, '0.0.0.0', () => {
       console.log('\n🚀 Server Initialization Complete');
       console.log(`⚡️ Server running at http://localhost:${port}`);
       console.log(`⚡️ Server also accessible at http://0.0.0.0:${port}`);
@@ -191,6 +194,10 @@ const initApp = async () => {
       console.log('   GET    /health     - Health check');
       console.log('   POST   /api/leads  - Create new lead');
       console.log('\n✅ Database connected successfully\n');
+    });
+
+    server.on('error', (err) => {
+      console.error('❌ Server error:', err);
     });
 
   } catch (error) {
