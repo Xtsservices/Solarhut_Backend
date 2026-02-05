@@ -87,10 +87,11 @@ export const updateProductDescription = async (id: number, productDescription: P
     values.push(updatedBy);
   }
   
+  // Check if there are any meaningful changes
+  if (fields.length === 0) return false;
+  
+  // Add timestamp field
   fields.push('updated_at = NOW()');
-  
-  if (fields.length === 1) return false; // Only updated_at was added
-  
   values.push(id);
   
   const [result]: [any, any] = await db.execute(`

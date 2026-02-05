@@ -69,19 +69,4 @@ router.get(
   solarCapacityController.getAllCategoryItems
 );
 
-// Update item in any category (SuperAdmin only)
-router.put(
-  "/:categoryType/items/:id",
-  authenticate,
-  validateRequest(updateSolarCapacitySchema),
-  solarCapacityController.updateCategoryItem
-);
-
-// Delete item from any category (SuperAdmin only)
-router.delete(
-  "/:categoryType/items/:id",
-  authenticate,
-  solarCapacityController.deleteCategoryItem
-);
-
 export default router;

@@ -424,7 +424,7 @@ export const updateCategoryItem = async (req: Request, res: Response) => {
         }
         
         updated = await inverterTypeQueries.updateInverterType(parseInt(id), {
-          name, status
+          name, status, updated_by: (res.locals as any).user.id
         });
         break;
 
@@ -446,7 +446,7 @@ export const updateCategoryItem = async (req: Request, res: Response) => {
         
         updated = await productDescriptionQueries.updateProductDescription(parseInt(id), {
           name, status
-        });
+        }, (res.locals as any).user.id);
         break;
 
       case 'structures':
@@ -467,7 +467,7 @@ export const updateCategoryItem = async (req: Request, res: Response) => {
         
         updated = await structureQueries.updateStructure(parseInt(id), {
           name, status
-        });
+        }, (res.locals as any).user.id);
         break;
 
       default:
