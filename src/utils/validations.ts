@@ -1871,3 +1871,152 @@ export const contactSchema = {
             })
     })
 };
+
+// Bank Details Joi Validation
+export const bankDetailsSchema = {
+    create: Joi.object({
+        bank_name: Joi.string()
+            .min(2)
+            .max(255)
+            .required()
+            .trim()
+            .messages({
+                'string.empty': 'Bank name is required',
+                'string.min': 'Bank name must be at least 2 characters long',
+                'string.max': 'Bank name cannot exceed 255 characters',
+                'any.required': 'Bank name is required'
+            }),
+        account_name: Joi.string()
+            .min(2)
+            .max(255)
+            .required()
+            .trim()
+            .messages({
+                'string.empty': 'Account name is required',
+                'string.min': 'Account name must be at least 2 characters long',
+                'string.max': 'Account name cannot exceed 255 characters',
+                'any.required': 'Account name is required'
+            }),
+        account_number: Joi.string()
+            .min(8)
+            .max(50)
+            .pattern(/^[0-9]+$/)
+            .required()
+            .trim()
+            .messages({
+                'string.empty': 'Account number is required',
+                'string.min': 'Account number must be at least 8 digits long',
+                'string.max': 'Account number cannot exceed 50 characters',
+                'string.pattern.base': 'Account number must contain only numbers',
+                'any.required': 'Account number is required'
+            }),
+        ifsc: Joi.string()
+            .length(11)
+            .pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/)
+            .required()
+            .uppercase()
+            .trim()
+            .messages({
+                'string.empty': 'IFSC code is required',
+                'string.length': 'IFSC code must be exactly 11 characters long',
+                'string.pattern.base': 'Invalid IFSC code format. Must be in format: ABCD0123456',
+                'any.required': 'IFSC code is required'
+            }),
+        branch: Joi.string()
+            .min(2)
+            .max(255)
+            .required()
+            .trim()
+            .messages({
+                'string.empty': 'Branch is required',
+                'string.min': 'Branch must be at least 2 characters long',
+                'string.max': 'Branch cannot exceed 255 characters',
+                'any.required': 'Branch is required'
+            }),
+        upi_id: Joi.string()
+            .max(100)
+            .pattern(/^[\w.-]+@[a-zA-Z]+$/)
+            .optional()
+            .allow('', null)
+            .trim()
+            .messages({
+                'string.max': 'UPI ID cannot exceed 100 characters',
+                'string.pattern.base': 'Invalid UPI ID format. Must be in format: example@bankname'
+            }),
+        status: Joi.string()
+            .valid('Active', 'Inactive')
+            .optional()
+            .messages({
+                'any.only': 'Status must be either Active or Inactive'
+            })
+    }),
+    
+    update: Joi.object({
+        bank_name: Joi.string()
+            .min(2)
+            .max(255)
+            .optional()
+            .trim()
+            .messages({
+                'string.min': 'Bank name must be at least 2 characters long',
+                'string.max': 'Bank name cannot exceed 255 characters'
+            }),
+        account_name: Joi.string()
+            .min(2)
+            .max(255)
+            .optional()
+            .trim()
+            .messages({
+                'string.min': 'Account name must be at least 2 characters long',
+                'string.max': 'Account name cannot exceed 255 characters'
+            }),
+        account_number: Joi.string()
+            .min(8)
+            .max(50)
+            .pattern(/^[0-9]+$/)
+            .optional()
+            .trim()
+            .messages({
+                'string.min': 'Account number must be at least 8 digits long',
+                'string.max': 'Account number cannot exceed 50 characters',
+                'string.pattern.base': 'Account number must contain only numbers'
+            }),
+        ifsc: Joi.string()
+            .length(11)
+            .pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/)
+            .optional()
+            .uppercase()
+            .trim()
+            .messages({
+                'string.length': 'IFSC code must be exactly 11 characters long',
+                'string.pattern.base': 'Invalid IFSC code format. Must be in format: ABCD0123456'
+            }),
+        branch: Joi.string()
+            .min(2)
+            .max(255)
+            .optional()
+            .trim()
+            .messages({
+                'string.min': 'Branch must be at least 2 characters long',
+                'string.max': 'Branch cannot exceed 255 characters'
+            }),
+        upi_id: Joi.string()
+            .max(100)
+            .pattern(/^[\w.-]+@[a-zA-Z]+$/)
+            .optional()
+            .allow('', null)
+            .trim()
+            .messages({
+                'string.max': 'UPI ID cannot exceed 100 characters',
+                'string.pattern.base': 'Invalid UPI ID format. Must be in format: example@bankname'
+            }),
+        status: Joi.string()
+            .valid('Active', 'Inactive')
+            .optional()
+            .messages({
+                'any.only': 'Status must be either Active or Inactive'
+            })
+    }).min(1).messages({
+        'object.min': 'At least one field must be provided for update'
+    })
+};

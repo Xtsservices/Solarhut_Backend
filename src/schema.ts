@@ -605,6 +605,26 @@ CREATE TABLE IF NOT EXISTS structures (
     FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
 )`;
 
+const createBankDetailsTable = `
+CREATE TABLE IF NOT EXISTS bank_details (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    bank_name VARCHAR(255) NOT NULL,
+    account_name VARCHAR(255) NOT NULL,
+    account_number VARCHAR(50) NOT NULL,
+    ifsc VARCHAR(20) NOT NULL,
+    branch VARCHAR(255) NOT NULL,
+    upi_id VARCHAR(100),
+    qr_code_url VARCHAR(500),
+    qr_code_s3_key VARCHAR(500),
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_by INT NOT NULL,
+    updated_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
+)`;
+
 
 const insertDefaultRoles = async () => {
   const defaultRoles = [
@@ -1059,6 +1079,7 @@ export const initializeDatabase = async () => {
     await db.execute(createInverterTypesTable);
     await db.execute(createProductDescriptionsTable);
     await db.execute(createStructuresTable);
+    await db.execute(createBankDetailsTable);
 
     // Run migrations for existing tables
     await migrateJobAssignmentsTable();

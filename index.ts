@@ -28,6 +28,7 @@ import invoiceRoutes from './src/routes/invoiceRoutes';
 import paymentsSummaryRoutes from './src/routes/paymentsSummaryRoutes';
 import summaryGraphRoutes from './src/routes/summaryGraphRoutes';
 import solarCapacityRoutes from './src/routes/solarCapacityRoutes';
+import bankDetailsRoutes from './src/routes/bankDetailsRoutes';
 
 dotenv.config();
       
@@ -166,6 +167,7 @@ const initApp = async () => {
     app.use('/api/invoices', invoiceRoutes);
     app.use('/api/taxinvoices', taxInvoiceRoutes);
     app.use('/api/solar-capacities', solarCapacityRoutes);
+    app.use('/api/bank-details', bankDetailsRoutes);
     // Mount new dashboard/statistics routes
     app.use('/api/stats', statsRoutes);
     

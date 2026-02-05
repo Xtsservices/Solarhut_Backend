@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db, executeQuery } from "../db";
 
 export interface ProductDescription {
   id?: number;
@@ -12,28 +12,38 @@ export interface ProductDescription {
 
 // Get all product descriptions
 export const getAllProductDescriptions = async (): Promise<ProductDescription[]> => {
-  const [rows] = await db.execute(`
-    SELECT 
-      pd.*,
-      CONCAT(e.first_name, ' ', e.last_name) as created_by_name,
-      CONCAT(u.first_name, ' ', u.last_name) as updated_by_name
-    FROM product_descriptions pd
-    LEFT JOIN employees e ON pd.created_by = e.id
-    LEFT JOIN employees u ON pd.updated_by = u.id
-    ORDER BY pd.name ASC
-  `);
-  return rows as ProductDescription[];
+  try {
+    const [rows] = await executeQuery(`
+      SELECT 
+        pd.*,
+        CONCAT(e.first_name, ' ', e.last_name) as created_by_name,
+        CONCAT(u.first_name, ' ', u.last_name) as updated_by_name
+      FROM product_descriptions pd
+      LEFT JOIN employees e ON pd.created_by = e.id
+      LEFT JOIN employees u ON pd.updated_by = u.id
+      ORDER BY pd.name ASC
+    `);
+    return rows as ProductDescription[];
+  } catch (error) {
+    console.error('Error in getAllProductDescriptions:', error);
+    throw new Error(`Failed to fetch product descriptions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 };
 
 // Get active product descriptions for dropdown
 export const getActiveProductDescriptions = async (): Promise<ProductDescription[]> => {
-  const [rows] = await db.execute(`
-    SELECT id, name
-    FROM product_descriptions 
-    WHERE status = 'Active'
-    ORDER BY name ASC
-  `);
-  return rows as ProductDescription[];
+  try {
+    const [rows] = await executeQuery(`
+      SELECT id, name
+      FROM product_descriptions 
+      WHERE status = 'Active'
+      ORDER BY name ASC
+    `);
+    return rows as ProductDescription[];
+  } catch (error) {
+    console.error('Error in getActiveProductDescriptions:', error);
+    throw new Error(`Failed to fetch active product descriptions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 };
 
 // Get product description by ID

@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db, executeQuery } from "../db";
 
 export interface Structure {
   id?: number;
@@ -12,17 +12,22 @@ export interface Structure {
 
 // Get all structures
 export const getAllStructures = async (): Promise<Structure[]> => {
-  const [rows] = await db.execute(`
-    SELECT 
-      s.*,
-      CONCAT(e.first_name, ' ', e.last_name) as created_by_name,
-      CONCAT(u.first_name, ' ', u.last_name) as updated_by_name
-    FROM structures s
-    LEFT JOIN employees e ON s.created_by = e.id
-    LEFT JOIN employees u ON s.updated_by = u.id
-    ORDER BY s.name ASC
-  `);
-  return rows as Structure[];
+  try {
+    const [rows] = await executeQuery(`
+      SELECT 
+        s.*,
+        CONCAT(e.first_name, ' ', e.last_name) as created_by_name,
+        CONCAT(u.first_name, ' ', u.last_name) as updated_by_name
+      FROM structures s
+      LEFT JOIN employees e ON s.created_by = e.id
+      LEFT JOIN employees u ON s.updated_by = u.id
+      ORDER BY s.name ASC
+    `);
+    return rows as Structure[];
+  } catch (error) {
+    console.error('Error in getAllStructures:', error);
+    throw new Error(`Failed to fetch structures: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 };
 
 // Get active structures for dropdown
