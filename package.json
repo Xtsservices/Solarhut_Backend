@@ -24,6 +24,8 @@
   },
   "homepage": "https://github.com/Xtsservices/Solarhut_Backend#readme",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.983.0",
+    "@aws-sdk/s3-request-presigner": "^3.983.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.4",
@@ -37,11 +39,13 @@
     "express": "^5.1.0",
     "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
     "mysql2": "^3.15.3",
     "pdfkit": "^0.17.2",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
+    "@types/multer": "^2.0.0",
     "@types/pdfkit": "^0.17.4",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",

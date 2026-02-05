@@ -375,25 +375,68 @@ export const addItemToCategory = async (req: Request, res: Response) => {
 // Get all items from all categories (for admin management)
 export const getAllCategoryItems = async (req: Request, res: Response) => {
   try {
-    const [inverterTypes, productDescriptions, structures] = await Promise.all([
+    // Execute queries one by one to better isolate any potential errors
+    const results = await Promise.allSettled([
       inverterTypeQueries.getAllInverterTypes(),
       productDescriptionQueries.getAllProductDescriptions(),
       structureQueries.getAllStructures()
     ]);
 
-    res.status(200).json({
-      message: "All category items retrieved successfully",
+    // Check for any failures and log them
+    const [inverterTypesResult, productDescriptionsResult, structuresResult] = results;
+    
+    let hasErrors = false;
+    const errors: string[] = [];
+    
+    if (inverterTypesResult.status === 'rejected') {
+      hasErrors = true;
+      errors.push(`Inverter Types: ${inverterTypesResult.reason.message}`);
+      console.error('Error fetching inverter types:', inverterTypesResult.reason);
+    }
+    
+    if (productDescriptionsResult.status === 'rejected') {
+      hasErrors = true;
+      errors.push(`Product Descriptions: ${productDescriptionsResult.reason.message}`);
+      console.error('Error fetching product descriptions:', productDescriptionsResult.reason);
+    }
+    
+    if (structuresResult.status === 'rejected') {
+      hasErrors = true;
+      errors.push(`Structures: ${structuresResult.reason.message}`);
+      console.error('Error fetching structures:', structuresResult.reason);
+    }
+
+    // If all queries failed, return error
+    if (results.every(result => result.status === 'rejected')) {
+      return res.status(500).json({
+        message: "Failed to fetch category items",
+        errors: errors,
+        data: null
+      });
+    }
+
+    // Return partial results if some succeeded
+    const response: any = {
+      message: hasErrors ? "Category items retrieved with some errors" : "All category items retrieved successfully",
       data: {
-        inverter_types: inverterTypes,
-        product_descriptions: productDescriptions,
-        structures: structures
+        inverter_types: inverterTypesResult.status === 'fulfilled' ? inverterTypesResult.value : [],
+        product_descriptions: productDescriptionsResult.status === 'fulfilled' ? productDescriptionsResult.value : [],
+        structures: structuresResult.status === 'fulfilled' ? structuresResult.value : []
       }
-    });
-  } catch (error: any) {
-    console.error("Error fetching all category items:", error);
+    };
+
+    if (hasErrors) {
+      response.errors = errors;
+      response.partial = true;
+    }
+
+    res.status(hasErrors ? 207 : 200).json(response);
+  } catch (error) {
+    console.error('Error in getAllCategoryItems:', error);
     res.status(500).json({
-      message: "Error fetching all category items",
-      error: error.message
+      message: "Internal server error while fetching category items",
+      error: error instanceof Error ? error.message : 'Unknown error',
+      data: null
     });
   }
 };

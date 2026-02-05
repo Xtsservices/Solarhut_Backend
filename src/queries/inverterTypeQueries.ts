@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { db, executeQuery } from "../db";
 
 export interface InverterType {
   id?: number;
@@ -12,17 +12,22 @@ export interface InverterType {
 
 // Get all inverter types
 export const getAllInverterTypes = async (): Promise<InverterType[]> => {
-  const [rows] = await db.execute(`
-    SELECT 
-      it.*,
-      CONCAT(e.first_name, ' ', e.last_name) as created_by_name,
-      CONCAT(u.first_name, ' ', u.last_name) as updated_by_name
-    FROM inverter_types it
-    LEFT JOIN employees e ON it.created_by = e.id
-    LEFT JOIN employees u ON it.updated_by = u.id
-    ORDER BY it.name ASC
-  `);
-  return rows as InverterType[];
+  try {
+    const [rows] = await executeQuery(`
+      SELECT 
+        it.*,
+        CONCAT(e.first_name, ' ', e.last_name) as created_by_name,
+        CONCAT(u.first_name, ' ', u.last_name) as updated_by_name
+      FROM inverter_types it
+      LEFT JOIN employees e ON it.created_by = e.id
+      LEFT JOIN employees u ON it.updated_by = u.id
+      ORDER BY it.name ASC
+    `);
+    return rows as InverterType[];
+  } catch (error) {
+    console.error('Error in getAllInverterTypes:', error);
+    throw new Error(`Failed to fetch inverter types: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 };
 
 // Get active inverter types for dropdown
