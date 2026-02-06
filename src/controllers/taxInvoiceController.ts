@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import Joi from 'joi';
-import { createTaxInvoice as createTaxInvoiceQuery, getTaxInvoices, updateTaxInvoiceByEstimationId, getTaxInvoiceById } from '../queries/invoiceQueries';
+import { createTaxInvoice as createTaxInvoiceQuery, getTaxInvoices, updateTaxInvoiceByEstimationId, getTaxInvoiceById, deleteTaxInvoiceById } from '../queries/invoiceQueries';
 import { getEstimationById } from '../queries/estimationQueries';
 import { generateInvoicePDF } from '../utils/invoicegenerate';
-import { taxInvoiceValidation } from '../utils/validations';
+import { taxInvoiceValidation, deleteTaxInvoiceValidation } from '../utils/validations';
 
 export const createTaxInvoice = async (req: Request, res: Response) => {
   if (!req.body.invoiceDate) {
@@ -79,7 +79,9 @@ export const createTaxInvoice = async (req: Request, res: Response) => {
 
 export const listTaxInvoices = async (req: Request, res: Response) => {
   try {
-    const taxInvoices = await getTaxInvoices();
+    const { includeInactive } = req.query;
+    const includeInactiveFlag = includeInactive === 'true';
+    const taxInvoices = await getTaxInvoices(includeInactiveFlag);
     res.json(taxInvoices);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch tax invoices' });
@@ -92,11 +94,23 @@ export const downloadTaxInvoice = async (req: Request, res: Response) => {
     if (isNaN(taxInvoiceId)) {
       return res.status(400).json({ error: 'Invalid tax invoice id' });
     }
-    const taxInvoiceData = await getTaxInvoiceById(taxInvoiceId);
-    console.log('[DEBUG] taxInvoiceData:', taxInvoiceData);
+    // For downloads, include inactive records so users can still download previously deleted tax invoices
+    const taxInvoiceData = await getTaxInvoiceById(taxInvoiceId, true);
+    console.log('[DEBUG] taxInvoiceData Raw from DB:', JSON.stringify(taxInvoiceData, null, 2));
+    
     if (!taxInvoiceData) {
       return res.status(404).json({ error: 'Tax Invoice not found' });
     }
+    
+    // Log the IGST values specifically
+    console.log('[DEBUG] IGST Values:');
+    console.log('igst_value:', taxInvoiceData.igst_value);
+    console.log('igst_percentage:', taxInvoiceData.igst_percentage);
+    console.log('cgst_value:', taxInvoiceData.cgst_value);
+    console.log('sgst_value:', taxInvoiceData.sgst_value);
+    console.log('amount:', taxInvoiceData.amount);
+    console.log('state:', taxInvoiceData.state);
+    
     const taxInvoiceModule = await import('../utils/taxInvoice');
     const generateTaxInvoicePDF = taxInvoiceModule.generateTaxInvoicePDF;
     console.log('[DEBUG] Calling generateTaxInvoicePDF with:', taxInvoiceData);
@@ -108,5 +122,35 @@ export const downloadTaxInvoice = async (req: Request, res: Response) => {
     console.error('[TAX INVOICE PDF ERROR]', err);
     const errorMessage = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: 'Failed to generate tax invoice PDF', details: errorMessage });
+  }
+};
+
+export const deleteTaxInvoice = async (req: Request, res: Response) => {
+  try {
+    const taxInvoiceId = parseInt(req.params.id, 10);
+    
+    // Validate the request
+    const { error } = deleteTaxInvoiceValidation.validate({ id: taxInvoiceId });
+    if (error) {
+      return res.status(400).json({ error: error.details[0].message });
+    }
+    
+    const deletedTaxInvoice = await deleteTaxInvoiceById(taxInvoiceId);
+    
+    if (!deletedTaxInvoice) {
+      return res.status(404).json({ error: 'Tax invoice not found or already deleted' });
+    }
+    
+    res.status(200).json({ 
+      message: 'Tax invoice deleted successfully', 
+      deletedTaxInvoice: {
+        ...deletedTaxInvoice,
+        status: 'Inactive'
+      }
+    });
+  } catch (err) {
+    console.error('Delete Tax Invoice Error:', err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: 'Failed to delete tax invoice', details: errorMessage });
   }
 };

@@ -45,7 +45,7 @@ export const createEstimation = async (req: Request, res: Response) => {
 
 export const getAllEstimations = async (req: Request, res: Response) => {
     try {
-        const { status, state, district } = req.query;
+        const { status, state, district, includeInactive } = req.query;
         const filters: any = {};
 
         if (status && typeof status === 'string') {
@@ -58,6 +58,11 @@ export const getAllEstimations = async (req: Request, res: Response) => {
 
         if (district && typeof district === 'string') {
             filters.district = district;
+        }
+
+        // Support includeInactive parameter
+        if (includeInactive === 'true') {
+            filters.includeInactive = true;
         }
 
         const estimations = await estimationQueries.getAllEstimations(filters);
@@ -78,7 +83,9 @@ export const getAllEstimations = async (req: Request, res: Response) => {
 
 export const getEstimationById = async (req: Request, res: Response) => {
     try {
-        const estimation = await estimationQueries.getEstimationById(parseInt(req.params.id));
+        const { includeInactive } = req.query;
+        const includeInactiveFlag = includeInactive === 'true';
+        const estimation = await estimationQueries.getEstimationById(parseInt(req.params.id), includeInactiveFlag);
         if (!estimation) {
             return res.status(404).json({
                 success: false,
@@ -157,7 +164,7 @@ export const deleteEstimation = async (req: Request, res: Response) => {
         if (!deleted) {
             return res.status(404).json({
                 success: false,
-                message: 'Estimation not found'
+                message: 'Estimation not found or already deleted'
             });
         }
 
@@ -180,7 +187,8 @@ export const deleteEstimation = async (req: Request, res: Response) => {
 export const downloadEstimationPDF = async (req: Request, res: Response) => {
     try {
         const id = parseInt(req.params.id);
-        const estimation = await estimationQueries.getEstimationById(id);
+        // For downloads, include inactive records so users can still download previously deleted estimations
+        const estimation = await estimationQueries.getEstimationById(id, true);
 
         if (!estimation) {
             return res.status(404).json({

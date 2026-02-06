@@ -334,8 +334,14 @@ export async function generateTaxInvoicePDF(invoiceData: any): Promise<Buffer> {
         combinedTaxRate = igstPercentage; // IGST
       }
       
-      // Calculate Subtotal (excluding GST)
-      const subtotalExcludingGST = totalAmountIncludingGST / (1 + combinedTaxRate / 100);
+      // Calculate Subtotal using stored tax values (more accurate)
+      const actualTaxAmount = parseFloat(invoice.cgst_value || 0) + parseFloat(invoice.sgst_value || 0) + parseFloat(invoice.igst_value || 0);
+      const subtotalExcludingGST = totalAmountIncludingGST - actualTaxAmount;
+      
+      console.log('[PDF DEBUG] Subtotal calculation:');
+      console.log('totalAmountIncludingGST:', totalAmountIncludingGST);
+      console.log('actualTaxAmount:', actualTaxAmount);
+      console.log('subtotalExcludingGST:', subtotalExcludingGST);
       
       // Row 1: 70% of subtotal (excluding GST) - with proper rounding
       let amount70 = subtotalExcludingGST * 0.7;
@@ -345,9 +351,8 @@ export async function generateTaxInvoicePDF(invoiceData: any): Promise<Buffer> {
       
       // Round to 2 decimal places with precision preservation
       amount70 = Math.round(amount70 * 100) / 100;
-      // Adjust amount30 to ensure amount70 + amount30 + taxes = totalAmountIncludingGST exactly
-      // This prevents any rounding discrepancies
-      amount30 = totalAmountIncludingGST / (1 + combinedTaxRate / 100) - amount70;
+      // Adjust amount30 to ensure amount70 + amount30 = subtotalExcludingGST exactly
+      amount30 = subtotalExcludingGST - amount70;
       amount30 = Math.round(amount30 * 100) / 100;
       
       // Calculate rate per KWP (tax-exclusive)
@@ -467,50 +472,24 @@ export async function generateTaxInvoicePDF(invoiceData: any): Promise<Buffer> {
 
       y += 18;
 
-      // Tax calculations
+      // Tax calculations - Use stored database values instead of recalculating
       const cgstRate = parseFloat(invoice.cgst_percentage) || 0;
       const sgstRate = parseFloat(invoice.sgst_percentage) || 0;
       const igstRate = parseFloat(invoice.igst_percentage) || 0;
       
-      // Calculate tax amounts based on the displayed subtotal (amount70 + amount30)
-      let cgstAmount = 0;
-      let sgstAmount = 0;
-      let igstAmount = 0;
-      let totalTaxAmount = 0;
+      // Use the already calculated and stored tax amounts from the database
+      let cgstAmount = parseFloat(invoice.cgst_value) || 0;
+      let sgstAmount = parseFloat(invoice.sgst_value) || 0;
+      let igstAmount = parseFloat(invoice.igst_value) || 0;
+      let totalTaxAmount = cgstAmount + sgstAmount + igstAmount;
       
-      if (isAP) {
-        // For Andhra Pradesh: apply CGST and SGST
-        cgstAmount = (subtotalForDisplay * cgstRate) / 100;
-        sgstAmount = (subtotalForDisplay * sgstRate) / 100;
-        totalTaxAmount = cgstAmount + sgstAmount;
-        
-        // Round individual taxes to 2 decimals
-        cgstAmount = Math.round(cgstAmount * 100) / 100;
-        sgstAmount = Math.round(sgstAmount * 100) / 100;
-        
-        // Adjust the last tax to ensure subtotal + taxes = totalAmountIncludingGST exactly
-        const calculatedSum = subtotalForDisplay + cgstAmount + sgstAmount;
-        const rounding30iff = totalAmountIncludingGST - calculatedSum;
-        if (Math.abs(rounding30iff) > 0.001) {
-          sgstAmount = sgstAmount + rounding30iff;
-        }
-      } else {
-        // For other states: apply IGST
-        igstAmount = (subtotalForDisplay * igstRate) / 100;
-        totalTaxAmount = igstAmount;
-        
-        // Round IGST to 2 decimals
-        igstAmount = Math.round(igstAmount * 100) / 100;
-        
-        // Adjust IGST to ensure subtotal + igst = totalAmountIncludingGST exactly
-        const calculatedSum = subtotalForDisplay + igstAmount;
-        const roundingDiff = totalAmountIncludingGST - calculatedSum;
-        if (Math.abs(roundingDiff) > 0.001) {
-          igstAmount = igstAmount + roundingDiff;
-        }
-      }
-      
-      totalTaxAmount = cgstAmount + sgstAmount + igstAmount;
+      console.log('[PDF DEBUG] Using stored tax values:');
+      console.log('cgstAmount:', cgstAmount);
+      console.log('sgstAmount:', sgstAmount);
+      console.log('igstAmount:', igstAmount);
+      console.log('totalTaxAmount:', totalTaxAmount);
+      console.log('subtotalForDisplay:', subtotalForDisplay);
+      console.log('totalAmountIncludingGST:', totalAmountIncludingGST);
 
       // CGST row (if AP) - part of product table
       if (isAP) {

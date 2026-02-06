@@ -57,14 +57,38 @@ export async function updateTaxInvoiceByEstimationId(estimationId: number, updat
   return rows[0];
 }
 
-export async function getTaxInvoices() {
-  const [rows] = await db.query('SELECT * FROM tax_invoices ORDER BY invoiceDate DESC');
+export async function getTaxInvoices(includeInactive: boolean = false) {
+  let query = 'SELECT * FROM tax_invoices';
+  if (!includeInactive) {
+    query += ' WHERE status = "Active"';
+  }
+  query += ' ORDER BY invoiceDate DESC';
+  const [rows] = await db.query(query);
   return rows;
 }
 
-export async function getTaxInvoiceById(id: number) {
-  const [rows]: [any[], any] = await db.query('SELECT * FROM tax_invoices WHERE id = ? LIMIT 1', [id]);
+export async function getTaxInvoiceById(id: number, includeInactive: boolean = false) {
+  let query = 'SELECT * FROM tax_invoices WHERE id = ?';
+  const params = [id];
+  if (!includeInactive) {
+    query += ' AND status = ?';
+    params.push('Active');
+  }
+  query += ' LIMIT 1';
+  const [rows]: [any[], any] = await db.query(query, params);
   return rows[0];
+}
+
+export async function deleteTaxInvoiceById(id: number) {
+  // First check if the tax invoice exists and is active
+  const [rows]: [any[], any] = await db.query('SELECT * FROM tax_invoices WHERE id = ? AND status = ? LIMIT 1', [id, 'Active']);
+  if (rows.length === 0) {
+    return null;
+  }
+  
+  // Soft delete - change status to 'Inactive'
+  await db.query('UPDATE tax_invoices SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['Inactive', id]);
+  return rows[0]; // Return the tax invoice data before deletion
 }
 export async function updateInvoiceByEstimationId(estimationId: number, updateData: any) {
   // Build SET clause dynamically
@@ -115,12 +139,36 @@ export async function createInvoice(invoice: any) {
   return rows[0];
 }
 
-export async function getInvoices() {
-  const [rows] = await db.query('SELECT * FROM invoices ORDER BY invoiceDate DESC');
+export async function getInvoices(includeInactive: boolean = false) {
+  let query = 'SELECT * FROM invoices';
+  if (!includeInactive) {
+    query += ' WHERE status = "Active"';
+  }
+  query += ' ORDER BY invoiceDate DESC';
+  const [rows] = await db.query(query);
   return rows;
 }
 
-export async function getInvoiceById(id: number) {
-  const [rows]: [any[], any] = await db.query('SELECT * FROM invoices WHERE id = ? LIMIT 1', [id]);
+export async function getInvoiceById(id: number, includeInactive: boolean = false) {
+  let query = 'SELECT * FROM invoices WHERE id = ?';
+  const params = [id];
+  if (!includeInactive) {
+    query += ' AND status = ?';
+    params.push('Active');
+  }
+  query += ' LIMIT 1';
+  const [rows]: [any[], any] = await db.query(query, params);
   return rows[0];
+}
+
+export async function deleteInvoiceById(id: number) {
+  // First check if the invoice exists and is active
+  const [rows]: [any[], any] = await db.query('SELECT * FROM invoices WHERE id = ? AND status = ? LIMIT 1', [id, 'Active']);
+  if (rows.length === 0) {
+    return null;
+  }
+  
+  // Soft delete - change status to 'Inactive'
+  await db.query('UPDATE invoices SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['Inactive', id]);
+  return rows[0]; // Return the invoice data before deletion
 }

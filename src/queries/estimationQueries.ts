@@ -68,13 +68,17 @@ export const createEstimation = async (estimationData: CreateEstimationData) => 
     return result.insertId;
 };
 
-export const getAllEstimations = async (filters?: { status?: string; state?: string; district?: string }) => {
+export const getAllEstimations = async (filters?: { status?: string; state?: string; district?: string; includeInactive?: boolean }) => {
     let sql = 'SELECT * FROM estimations WHERE 1=1';
     const params: any[] = [];
     
+    // If no status filter is provided and includeInactive is not true, default to Active
     if (filters?.status) {
         sql += ' AND status = ?';
         params.push(filters.status);
+    } else if (!filters?.includeInactive) {
+        sql += ' AND status = ?';
+        params.push('Active');
     }
     
     if (filters?.state) {
@@ -93,11 +97,14 @@ export const getAllEstimations = async (filters?: { status?: string; state?: str
     return estimations;
 };
 
-export const getEstimationById = async (id: number) => {
-    const [estimations] = await db.execute<Estimation[]>(
-        'SELECT * FROM estimations WHERE id = ?',
-        [id]
-    );
+export const getEstimationById = async (id: number, includeInactive: boolean = false) => {
+    let query = 'SELECT * FROM estimations WHERE id = ?';
+    const params = [id];
+    if (!includeInactive) {
+        query += ' AND status = ?';
+        params.push('Active');
+    }
+    const [estimations] = await db.execute<Estimation[]>(query, params);
     return estimations[0];
 };
 
@@ -141,9 +148,10 @@ export const updateEstimation = async (
 };
 
 export const deleteEstimation = async (id: number) => {
+    // Soft delete - change status to 'Inactive'
     const [result] = await db.execute<ResultSetHeader>(
-        'DELETE FROM estimations WHERE id = ?',
-        [id]
+        'UPDATE estimations SET status = ? WHERE id = ? AND status = ?',
+        ['Inactive', id, 'Active']
     );
     return result.affectedRows > 0;
 };

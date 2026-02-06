@@ -19,6 +19,15 @@ export const invoiceValidation = Joi.object({
     product_description: Joi.string().allow('', null),
 });
 
+// Delete validations for invoices and tax invoices
+export const deleteInvoiceValidation = Joi.object({
+    id: Joi.number().integer().positive().required()
+});
+
+export const deleteTaxInvoiceValidation = Joi.object({
+    id: Joi.number().integer().positive().required()
+});
+
 export const estimationSchema = Joi.object({
     customer_name: Joi.string().max(200).required(),
     door_no: Joi.string().max(50).required(),
