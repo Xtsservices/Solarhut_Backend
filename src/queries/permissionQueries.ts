@@ -233,18 +233,153 @@ export const hasPermission = async (roleId: number, featureId: number, permissio
 };
 
 // Get all permissions for an employee based on their roles
+// Only returns features where the employee has at least 1 Active permission
 export const getEmployeePermissions = async (employeeId: number) => {
-    const [rows] = await db.execute<RowDataPacket[]>(
-        `SELECT DISTINCT f.feature_name , f.id AS feature_id
+    console.log('getEmployeePermissions called with employeeId:', employeeId);
+    
+    // Debug: check what raw permission rows exist for this employee
+    const [debugRows] = await db.execute<RowDataPacket[]>(
+        `SELECT p.employee_id, p.role_id, p.feature_id, f.feature_name, p.permission, p.status, er.status as er_status
          FROM permissions p
-         INNER JOIN roles r ON p.role_id = r.role_id
          INNER JOIN features f ON p.feature_id = f.id
-         INNER JOIN employee_roles er ON p.role_id = er.role_id
-         WHERE er.employee_id = ? 
-           AND p.status = 'Active' 
+         INNER JOIN employee_roles er ON p.role_id = er.role_id AND er.employee_id = ?
+         WHERE p.employee_id = ?
+         ORDER BY p.feature_id, p.permission`,
+        [employeeId, employeeId]
+    );
+    console.log('DEBUG - All permission rows for employee:', JSON.stringify(debugRows.map(r => ({
+        feature_id: r.feature_id,
+        feature_name: r.feature_name,
+        permission: r.permission,
+        p_status: r.status,
+        er_status: r.er_status
+    }))));
+
+    const [rows] = await db.execute<RowDataPacket[]>(
+        `SELECT f.feature_name, f.id AS feature_id
+         FROM permissions p
+         INNER JOIN features f ON p.feature_id = f.id
+         INNER JOIN employee_roles er ON p.role_id = er.role_id AND er.employee_id = ?
+         WHERE p.employee_id = ?
+           AND p.status = 'Active'
            AND er.status = 'Active'
-        `,
+         GROUP BY f.id, f.feature_name`,
+        [employeeId, employeeId]
+    );
+    console.log('DEBUG - Final filtered features:', JSON.stringify(rows));
+    return rows.map(row => row.feature_name);
+};
+
+// Get all active permissions for a specific employee (by employee_id in permissions table)
+export const getActivePermissionsByEmployeeId = async (employeeId: number) => {
+    const [rows] = await db.execute<RowDataPacket[]>(
+        `SELECT p.id, p.role_id, p.feature_id, p.permission, p.status
+         FROM permissions p
+         WHERE p.employee_id = ? AND p.status = 'Active'`,
         [employeeId]
     );
-     return rows.map(row => row.feature_name);
+    return rows;
+};
+
+// Upsert a single permission: INSERT if not exists, or UPDATE status to Active if exists
+export const upsertPermission = async (
+    roleId: number,
+    employeeId: number,
+    featureId: number,
+    permission: string,
+    createdBy: number
+) => {
+    // Use INSERT ... ON DUPLICATE KEY UPDATE to avoid duplicates
+    const [result] = await db.execute<ResultSetHeader>(
+        `INSERT INTO permissions (role_id, employee_id, feature_id, permission, created_by, status)
+         VALUES (?, ?, ?, ?, ?, 'Active')
+         ON DUPLICATE KEY UPDATE status = 'Active', updated_by = ?, updated_at = NOW()`,
+        [roleId, employeeId, featureId, permission, createdBy, createdBy]
+    );
+    return result;
+};
+
+// Deactivate permissions for a specific employee + role + feature combination
+export const deactivateRoleFeaturePermissions = async (
+    roleId: number,
+    employeeId: number,
+    featureId: number
+) => {
+    const [result] = await db.execute<ResultSetHeader>(
+        `UPDATE permissions SET status = 'Inactive', updated_at = NOW()
+         WHERE role_id = ? AND employee_id = ? AND feature_id = ? AND status = 'Active'`,
+        [roleId, employeeId, featureId]
+    );
+    return result.affectedRows;
+};
+
+// Deactivate specific permission types for a role + employee + feature
+export const deactivateSpecificPermissions = async (
+    roleId: number,
+    employeeId: number,
+    featureId: number,
+    permissions: string[]
+) => {
+    if (permissions.length === 0) return 0;
+    const placeholders = permissions.map(() => '?').join(',');
+    const [result] = await db.execute<ResultSetHeader>(
+        `UPDATE permissions SET status = 'Inactive', updated_at = NOW()
+         WHERE role_id = ? AND employee_id = ? AND feature_id = ? AND permission IN (${placeholders}) AND status = 'Active'`,
+        [roleId, employeeId, featureId, ...permissions]
+    );
+    return result.affectedRows;
+};
+
+// Sync employee permissions for update:
+// - Upsert permissions that are in the payload (set Active)
+// - Deactivate permissions for features in payload where boolean is false
+// - Deactivate all permissions for features NOT in the payload
+export const syncEmployeePermissions = async (
+    employeeId: number,
+    roleId: number,
+    featurePermissions: Array<{ feature_id: number; read: boolean; write: boolean; edit: boolean; delete: boolean }>,
+    updatedBy: number
+) => {
+    const allPermTypes = ['read', 'create', 'edit', 'delete'] as const;
+    const payloadFeatureIds = featurePermissions.map(fp => fp.feature_id);
+
+    // Step 1: Deactivate all active permissions for features NOT in the payload
+    if (payloadFeatureIds.length > 0) {
+        const placeholders = payloadFeatureIds.map(() => '?').join(',');
+        await db.execute(
+            `UPDATE permissions SET status = 'Inactive', updated_by = ?, updated_at = NOW()
+             WHERE employee_id = ? AND role_id = ? AND feature_id NOT IN (${placeholders}) AND status = 'Active'`,
+            [updatedBy, employeeId, roleId, ...payloadFeatureIds]
+        );
+    } else {
+        // If no features in payload, deactivate all
+        await db.execute(
+            `UPDATE permissions SET status = 'Inactive', updated_by = ?, updated_at = NOW()
+             WHERE employee_id = ? AND role_id = ? AND status = 'Active'`,
+            [updatedBy, employeeId, roleId]
+        );
+    }
+
+    // Step 2: For each feature in payload, upsert true permissions and deactivate false ones
+    for (const fp of featurePermissions) {
+        const mapping: Record<string, boolean> = {
+            read: fp.read,
+            create: fp.write,
+            edit: fp.edit,
+            delete: fp.delete
+        };
+
+        const toActivate = allPermTypes.filter(p => mapping[p]);
+        const toDeactivate = allPermTypes.filter(p => !mapping[p]);
+
+        // Upsert permissions that should be active
+        for (const perm of toActivate) {
+            await upsertPermission(roleId, employeeId, fp.feature_id, perm, updatedBy);
+        }
+
+        // Deactivate permissions that should be inactive
+        if (toDeactivate.length > 0) {
+            await deactivateSpecificPermissions(roleId, employeeId, fp.feature_id, [...toDeactivate]);
+        }
+    }
 };

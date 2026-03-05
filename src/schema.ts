@@ -43,6 +43,21 @@ CREATE TABLE IF NOT EXISTS employee_roles (
     FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE
 )`;
 
+const createEmployeeSalaryTable = `
+CREATE TABLE IF NOT EXISTS employee_salary (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    employee_id INT NOT NULL,
+    salary DECIMAL(12,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by INT NOT NULL,
+    status TINYINT(1) DEFAULT 1,
+    INDEX idx_employee_id (employee_id),
+    INDEX idx_status (status),
+    INDEX idx_created_by (created_by),
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE
+)`;
+
 const createContactsTable = `
 CREATE TABLE IF NOT EXISTS contacts (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1174,6 +1189,7 @@ export const initializeDatabase = async () => {
     await db.execute(createRolesTable);
     await db.execute(createEmployeesTable);
     await db.execute(createEmployeeRolesTable);
+    await db.execute(createEmployeeSalaryTable);
     await db.execute(createContactsTable);
     await db.execute(createLeadsTable);
     await db.execute(createOTPVerificationTable);

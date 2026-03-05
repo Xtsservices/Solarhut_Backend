@@ -107,6 +107,33 @@ export const employeeSchema = {
                 'array.min': 'At least one role must be assigned',
                 'any.required': 'At least one role is required',
                 'string.base': 'Role names must be strings'
+            }),
+        salary: Joi.number()
+            .positive()
+            .precision(2)
+            .optional()
+            .messages({
+                'number.base': 'Salary must be a valid number',
+                'number.positive': 'Salary must be a positive number'
+            }),
+        feature_permissions: Joi.array()
+            .items(Joi.object({
+                feature_id: Joi.number().integer().positive().required().messages({
+                    'number.base': 'Feature ID must be a number',
+                    'any.required': 'Feature ID is required'
+                }),
+                feature_name: Joi.string().required().messages({
+                    'string.empty': 'Feature name is required',
+                    'any.required': 'Feature name is required'
+                }),
+                read: Joi.boolean().default(false),
+                write: Joi.boolean().default(false),
+                edit: Joi.boolean().default(false),
+                delete: Joi.boolean().default(false)
+            }))
+            .optional()
+            .messages({
+                'array.base': 'Feature permissions must be an array'
             })
     }),
     update: Joi.object({
@@ -148,6 +175,42 @@ export const employeeSchema = {
             .valid('Active', 'Inactive', 'On Leave')
             .messages({
                 'any.only': 'Invalid status value'
+            }),
+        salary: Joi.number()
+            .positive()
+            .precision(2)
+            .allow(null)
+            .optional()
+            .messages({
+                'number.base': 'Salary must be a valid number',
+                'number.positive': 'Salary must be a positive number'
+            }),
+        feature_permissions: Joi.array()
+            .items(Joi.object({
+                feature_id: Joi.number().integer().positive().required().messages({
+                    'number.base': 'Feature ID must be a number',
+                    'any.required': 'Feature ID is required'
+                }),
+                feature_name: Joi.string().required().messages({
+                    'string.empty': 'Feature name is required',
+                    'any.required': 'Feature name is required'
+                }),
+                read: Joi.boolean().default(false),
+                write: Joi.boolean().default(false),
+                edit: Joi.boolean().default(false),
+                delete: Joi.boolean().default(false)
+            }))
+            .optional()
+            .messages({
+                'array.base': 'Feature permissions must be an array'
+            }),
+        roles: Joi.array()
+            .items(Joi.string().trim())
+            .min(1)
+            .optional()
+            .messages({
+                'array.min': 'At least one role must be provided',
+                'string.base': 'Role names must be strings'
             })
     }),
     assignRoles: Joi.object({

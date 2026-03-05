@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import * as employeeQueries from '../queries/employeeQueries';
+import * as permissionQueries from '../queries/permissionQueries';
+import * as salaryQueries from '../queries/salaryQueries';
 
 export const createEmployee = async (req: Request, res: Response) => {
     try {
-        // Check if email or mobile already exists
+        // Step 1: Check if email or mobile already exists
         const existingEmployee = await employeeQueries.getEmployeeByEmail(req.body.email);
         const existingMobile = await employeeQueries.getEmployeeByMobile(req.body.mobile);
         if (existingEmployee) {
@@ -19,8 +21,8 @@ export const createEmployee = async (req: Request, res: Response) => {
             });
         }
 
-        // Create employee
-        const { roles, ...employeeData } = req.body;
+        // Step 2: Create employee record in employees table and assign roles in employee_roles
+        const { roles, salary, feature_permissions, ...employeeData } = req.body;
         const { insertId, userId } = await employeeQueries.createEmployee(employeeData);
 
         // Assign roles if provided
@@ -37,15 +39,61 @@ export const createEmployee = async (req: Request, res: Response) => {
             }
         }
 
+        // Step 3: Create permissions records in permissions table
+        if (Array.isArray(feature_permissions) && feature_permissions.length > 0) {
+            try {
+                // Get the assigned role IDs for this employee
+                const employeeRoles = await employeeQueries.getRolesByIdentifiers(roles);
+                
+                for (const fp of feature_permissions) {
+                    const permissionsToCreate: string[] = [];
+                    if (fp.read) permissionsToCreate.push('read');
+                    if (fp.write) permissionsToCreate.push('create');
+                    if (fp.edit) permissionsToCreate.push('edit');
+                    if (fp.delete) permissionsToCreate.push('delete');
+
+                    if (permissionsToCreate.length > 0) {
+                        // Create permissions for each role assigned to the employee
+                        for (const role of employeeRoles) {
+                            await permissionQueries.createRoleFeaturePermissions(
+                                role.role_id,
+                                insertId,
+                                fp.feature_id,
+                                permissionsToCreate,
+                                insertId
+                            );
+                        }
+                    }
+                }
+            } catch (error: any) {
+                console.error('Error creating feature permissions:', error);
+                // Don't rollback employee creation, just log the error
+            }
+        }
+
+        // Step 4: Create salary record in employee_salary table
+        if (salary) {
+            try {
+                await salaryQueries.createSalary(insertId, salary, insertId);
+            } catch (error: any) {
+                console.error('Error creating salary record:', error);
+                // Don't rollback employee creation, just log the error
+            }
+        }
+
         // Get complete employee data with roles
         const employee = await employeeQueries.getEmployeeById(insertId);
+
+        // Get active salary for response
+        const activeSalary = await salaryQueries.getActiveSalary(insertId);
 
         res.status(201).json({
             success: true,
             message: 'Employee created successfully',
             data: {
                 ...employee,
-                password: undefined // Remove password from response
+                password: undefined,
+                salary: activeSalary ? activeSalary.salary : null
             }
         });
     } catch (error) {
@@ -162,24 +210,86 @@ export const updateEmployee = async (req: Request, res: Response) => {
             }
         }
 
-        // Exclude roles from updateData as they should be handled separately
-        const { roles, ...updateData } = req.body;
+        // Exclude roles, salary, feature_permissions from updateData as they are handled separately
+        const { roles, salary, feature_permissions, ...updateData } = req.body;
 
-        const updated = await employeeQueries.updateEmployee(employeeId, updateData);
-        if (!updated) {
-            return res.status(400).json({
-                success: false,
-                message: 'No valid fields to update'
-            });
+        // Update employee basic fields if any provided
+        if (Object.keys(updateData).length > 0) {
+            const updated = await employeeQueries.updateEmployee(employeeId, updateData);
+            if (!updated) {
+                // Only return error if no other fields (roles/salary/permissions) to process
+                if (salary === undefined && !feature_permissions && !roles) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'No valid fields to update'
+                    });
+                }
+            }
+        }
+
+        // Sync roles if provided:
+        // 1. Compare existing active roles with payload roles
+        // 2. If same -> do nothing
+        // 3. If different -> deactivate removed roles, upsert new roles as Active
+        if (Array.isArray(roles) && roles.length > 0) {
+            try {
+                await employeeQueries.syncEmployeeRoles(employeeId, roles);
+            } catch (error: any) {
+                return res.status(400).json({
+                    success: false,
+                    message: error.message
+                });
+            }
+        }
+
+        // Update salary if provided
+        if (salary !== undefined) {
+            try {
+                if (salary === null) {
+                    // Deactivate salary if null is passed
+                    await salaryQueries.deactivateSalary(employeeId);
+                } else {
+                    await salaryQueries.updateSalary(employeeId, salary, employeeId);
+                }
+            } catch (error: any) {
+                console.error('Error updating salary:', error);
+            }
+        }
+
+        // Update feature permissions if provided
+        if (Array.isArray(feature_permissions)) {
+            try {
+                // Get the employee's current roles
+                const empData = await employeeQueries.getEmployeeById(employeeId);
+                const employeeRoles = empData?.roles || [];
+
+                // Sync permissions for each role:
+                // - Features in payload: upsert true permissions as Active, set false ones as Inactive
+                // - Features NOT in payload but existing in DB: set to Inactive
+                // - No duplicates created (uses ON DUPLICATE KEY UPDATE)
+                for (const role of employeeRoles) {
+                    await permissionQueries.syncEmployeePermissions(
+                        employeeId,
+                        role.role_id,
+                        feature_permissions,
+                        employeeId
+                    );
+                }
+            } catch (error: any) {
+                console.error('Error updating feature permissions:', error);
+            }
         }
 
         const updatedEmployee = await employeeQueries.getEmployeeById(employeeId);
+        const activeSalary = await salaryQueries.getActiveSalary(employeeId);
+
         res.json({
             success: true,
             message: 'Employee updated successfully',
             data: {
                 ...updatedEmployee,
-                password: undefined
+                password: undefined,
+                salary: activeSalary ? activeSalary.salary : null
             }
         });
     } catch (error) {

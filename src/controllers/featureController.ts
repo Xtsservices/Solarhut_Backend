@@ -167,6 +167,7 @@ export const listMyFeatures = async (req: Request, res: Response) => {
             return res.status(401).json({ success: false, message: 'User information not found' });
         }
 
+        console.log('listMyFeatures - User Id:', user.id);
         // Get features based on the user's role permissions (not features they created)
         const featureNames = await permissionQueries.getEmployeePermissions(user.id);
         

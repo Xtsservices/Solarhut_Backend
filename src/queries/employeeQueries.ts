@@ -113,6 +113,73 @@ export const assignRolesToEmployee = async (employeeId: number, identifiers: Arr
     return result.affectedRows;
 };
 
+// Sync roles for an employee during update:
+// 1. Compare existing active roles with payload roles
+// 2. If same -> do nothing
+// 3. If different -> deactivate removed roles, upsert new/changed roles as Active
+export const syncEmployeeRoles = async (employeeId: number, identifiers: Array<string | number>) => {
+    // Resolve payload role names/ids to actual role rows
+    const payloadRoles = await getRolesByIdentifiers(identifiers);
+
+    if (payloadRoles.length !== identifiers.length) {
+        const found = payloadRoles.map(r => r.role_name);
+        const missing = identifiers.filter(id => {
+            if (typeof id === 'number') return !payloadRoles.some(r => r.role_id === id);
+            return !found.includes(String(id));
+        });
+        throw new Error(`Some roles do not exist: ${missing.join(', ')}`);
+    }
+
+    const payloadRoleIds = new Set(payloadRoles.map(r => r.role_id));
+
+    // Get current active roles for this employee
+    const [existingRows] = await db.execute<RowDataPacket[]>(
+        `SELECT role_id FROM employee_roles WHERE employee_id = ? AND status = 'Active'`,
+        [employeeId]
+    );
+    const existingRoleIds = new Set(existingRows.map((row: any) => row.role_id as number));
+
+    // Check if they are identical
+    const isSame = payloadRoleIds.size === existingRoleIds.size &&
+        [...payloadRoleIds].every(id => existingRoleIds.has(id));
+
+    if (isSame) {
+        return { changed: false };
+    }
+
+    // Roles to deactivate: in existing but NOT in payload
+    const toDeactivate = [...existingRoleIds].filter(id => !payloadRoleIds.has(id));
+
+    // Roles to add/reactivate: in payload but NOT in existing active
+    const toActivate = [...payloadRoleIds].filter(id => !existingRoleIds.has(id));
+
+    // Deactivate removed roles
+    if (toDeactivate.length > 0) {
+        const placeholders = toDeactivate.map(() => '?').join(',');
+        await db.execute(
+            `UPDATE employee_roles SET status = 'Inactive', updated_at = NOW()
+             WHERE employee_id = ? AND role_id IN (${placeholders}) AND status = 'Active'`,
+            [employeeId, ...toDeactivate]
+        );
+    }
+
+    // Upsert new/reactivated roles using INSERT ... ON DUPLICATE KEY UPDATE
+    for (const roleId of toActivate) {
+        await db.execute(
+            `INSERT INTO employee_roles (employee_id, role_id, status, assigned_at)
+             VALUES (?, ?, 'Active', NOW())
+             ON DUPLICATE KEY UPDATE status = 'Active', updated_at = NOW()`,
+            [employeeId, roleId]
+        );
+    }
+
+    return {
+        changed: true,
+        deactivated: toDeactivate,
+        activated: toActivate
+    };
+};
+
 // Get employee by ID with their roles
 export const getEmployeeById = async (id: number) => {
     const [employees] = await db.execute<Employee[]>(
@@ -123,7 +190,7 @@ export const getEmployeeById = async (id: number) => {
             GROUP_CONCAT(er.updated_at) as role_updated_dates,
             GROUP_CONCAT(er.status) as role_statuses
          FROM employees e
-         LEFT JOIN employee_roles er ON e.id = er.employee_id
+         LEFT JOIN employee_roles er ON e.id = er.employee_id AND er.status = 'Active'
          LEFT JOIN roles r ON er.role_id = r.role_id
          WHERE e.id = ?
          GROUP BY e.id`,
@@ -185,7 +252,7 @@ export const getEmployeeByMobile = async (mobile: string) => {
             GROUP_CONCAT(er.updated_at) as role_updated_dates,
             GROUP_CONCAT(er.status) as role_statuses
          FROM employees e
-         LEFT JOIN employee_roles er ON e.id = er.employee_id
+         LEFT JOIN employee_roles er ON e.id = er.employee_id AND er.status = 'Active'
          LEFT JOIN roles r ON er.role_id = r.role_id
          WHERE e.mobile = ?
          GROUP BY e.id`,
@@ -284,6 +351,7 @@ export const deleteEmployee = async (id: number): Promise<boolean> => {
 };
 
 export const getAllEmployees = async () => {
+    // 1. Fetch employees with roles
     const [employees] = await db.execute<Employee[]>(
         `SELECT e.*, 
             GROUP_CONCAT(r.role_name) as role_names,
@@ -292,13 +360,63 @@ export const getAllEmployees = async () => {
             GROUP_CONCAT(er.updated_at) as role_updated_dates,
             GROUP_CONCAT(er.status) as role_statuses
          FROM employees e
-         LEFT JOIN employee_roles er ON e.id = er.employee_id
+         LEFT JOIN employee_roles er ON e.id = er.employee_id AND er.status = 'Active'
          LEFT JOIN roles r ON er.role_id = r.role_id
          GROUP BY e.id
          ORDER BY e.created_at DESC`
     );
 
+    // 2. Fetch latest active salary for all employees in one query
+    const [salaryRows] = await db.execute<RowDataPacket[]>(
+        `SELECT es.employee_id, es.salary, es.created_at as salary_created_at, es.created_by
+         FROM employee_salary es
+         INNER JOIN (
+             SELECT employee_id, MAX(created_at) as max_created_at
+             FROM employee_salary
+             WHERE status = 1
+             GROUP BY employee_id
+         ) latest ON es.employee_id = latest.employee_id AND es.created_at = latest.max_created_at
+         WHERE es.status = 1`
+    );
+    const salaryMap = new Map<number, any>();
+    for (const row of salaryRows) {
+        salaryMap.set(row.employee_id, row.salary);
+    }
+
+    // 3. Fetch permissions for all employees in one query
+    const [permissionRows] = await db.execute<RowDataPacket[]>(
+        `SELECT p.employee_id, p.feature_id, f.feature_name, p.permission
+         FROM permissions p
+         INNER JOIN features f ON p.feature_id = f.id
+         WHERE p.status = 'Active'
+         ORDER BY p.employee_id, p.feature_id`
+    );
+    // Group permissions by employee_id -> feature_id
+    const permissionsMap = new Map<number, Map<number, any>>();
+    for (const row of permissionRows) {
+        if (!permissionsMap.has(row.employee_id)) {
+            permissionsMap.set(row.employee_id, new Map());
+        }
+        const featureMap = permissionsMap.get(row.employee_id)!;
+        if (!featureMap.has(row.feature_id)) {
+            featureMap.set(row.feature_id, {
+                feature_id: row.feature_id,
+                feature_name: row.feature_name,
+                read: false,
+                write: false,
+                edit: false,
+                delete: false
+            });
+        }
+        const fp = featureMap.get(row.feature_id)!;
+        if (row.permission === 'read') fp.read = true;
+        if (row.permission === 'create') fp.write = true;
+        if (row.permission === 'edit') fp.edit = true;
+        if (row.permission === 'delete') fp.delete = true;
+    }
+
     return employees.map(employee => {
+        // Format roles
         if (employee.role_names) {
             const roleNames = employee.role_names.split(',');
             const roleIds = employee.role_ids.split(',').map(Number);
@@ -323,6 +441,15 @@ export const getAllEmployees = async () => {
         delete employee.role_assigned_dates;
         delete employee.role_updated_dates;
         delete employee.role_statuses;
+
+        // Attach salary
+        (employee as any).salary = salaryMap.get(employee.id) ?? null;
+
+        // Attach feature_permissions
+        const featureMap = permissionsMap.get(employee.id);
+        (employee as any).feature_permissions = featureMap
+            ? Array.from(featureMap.values())
+            : [];
 
         return employee;
     });
