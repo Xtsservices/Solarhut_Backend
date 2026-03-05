@@ -69,7 +69,7 @@ export async function getTaxInvoices(includeInactive: boolean = false) {
 
 export async function getTaxInvoiceById(id: number, includeInactive: boolean = false) {
   let query = 'SELECT * FROM tax_invoices WHERE id = ?';
-  const params = [id];
+  const params: any[] = [id];
   if (!includeInactive) {
     query += ' AND status = ?';
     params.push('Active');
@@ -151,7 +151,7 @@ export async function getInvoices(includeInactive: boolean = false) {
 
 export async function getInvoiceById(id: number, includeInactive: boolean = false) {
   let query = 'SELECT * FROM invoices WHERE id = ?';
-  const params = [id];
+  const params: any[] = [id];
   if (!includeInactive) {
     query += ' AND status = ?';
     params.push('Active');

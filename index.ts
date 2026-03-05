@@ -82,29 +82,6 @@ const initApp = async () => {
     // Initialize database tables
     await initializeDatabase();
     
-    // Ensure admin user exists (after tables are created)
-    const { getAdminEmployeeByMobileOrEmail, createEmployee } = require('./src/queries/employeeQueries');
-    const adminMobile = '9046246290';
-    const adminEmail = 'solarhutsolutions@gmail.com';
-    const adminFirstName = 'Solarhut';
-    const adminLastName = 'Admin';
-    const adminJoiningDate = new Date();
-    const adminStatus = 'Active';
-    let adminUser = await getAdminEmployeeByMobileOrEmail(adminMobile, adminEmail);
-    if (!adminUser) {
-      await createEmployee({
-        first_name: adminFirstName,
-        last_name: adminLastName,
-        email: adminEmail,
-        mobile: adminMobile,
-        joining_date: adminJoiningDate,
-        status: adminStatus
-      });
-      console.log('✅ Admin user created.');
-    } else {
-      console.log('✅ Admin user already exists.');
-    }
-    
     // Start OTP cleanup scheduler (every 5 minutes)
     const startOTPCleanup = () => {
       setInterval(async () => {

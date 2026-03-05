@@ -5,6 +5,7 @@ import { indianDistricts } from "./utils/districts";
 import * as countryQueries from "./queries/countryQueries";
 import * as stateQueries from "./queries/stateQueries";
 import * as districtQueries from "./queries/districtQueries";
+import { allFeatures } from "./utils/common";
 
 const createRolesTable = `
 CREATE TABLE IF NOT EXISTS roles (
@@ -272,6 +273,7 @@ const createPermissionsTable = `
 CREATE TABLE IF NOT EXISTS permissions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     role_id INT NOT NULL,
+    employee_id INT NOT NULL,
     feature_id INT NOT NULL,
     permission VARCHAR(100) NOT NULL,
     created_by INT NOT NULL,
@@ -281,12 +283,14 @@ CREATE TABLE IF NOT EXISTS permissions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_role_feature_permission (role_id, feature_id, permission),
     INDEX idx_role_id (role_id),
+    INDEX idx_employee_id (employee_id),
     INDEX idx_feature_id (feature_id),
     INDEX idx_permission (permission),
     INDEX idx_status (status),
     INDEX idx_created_by (created_by),
     INDEX idx_updated_by (updated_by),
     FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
     FOREIGN KEY (feature_id) REFERENCES features(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE,
     FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
@@ -628,6 +632,7 @@ CREATE TABLE IF NOT EXISTS bank_details (
 
 const insertDefaultRoles = async () => {
   const defaultRoles = [
+    "SuperAdmin",
     "Admin",
     "Sales Person",
     "Field Executive",
@@ -638,6 +643,118 @@ const insertDefaultRoles = async () => {
     await db.execute("INSERT IGNORE INTO roles (role_name) VALUES (?)", [
       roleName,
     ]);
+  }
+};
+
+const insertDefaultSuperAdminEmployee = async () => {
+  const superAdminMobile = "9052519059";
+  const superAdminPermissions = ["read", "create", "edit", "delete"];
+
+  try {
+    // --- Step 1: Get or create the SuperAdmin role ---
+    const [roleRows] = await db.execute(
+      `SELECT role_id FROM roles WHERE role_name = 'SuperAdmin' LIMIT 1`
+    ) as any;
+
+    let superAdminRoleId: number;
+    if (roleRows.length > 0) {
+      superAdminRoleId = roleRows[0].role_id;
+    } else {
+      const [roleResult] = await db.execute(
+        `INSERT INTO roles (role_name, status) VALUES ('SuperAdmin', 'Active')`
+      ) as any;
+      superAdminRoleId = roleResult.insertId;
+      console.log(`Created SuperAdmin role with ID: ${superAdminRoleId}`);
+    }
+
+    // --- Step 2: Get or create the SuperAdmin employee ---
+    const [existingEmployee] = await db.execute(
+      `SELECT id FROM employees WHERE mobile = ? LIMIT 1`,
+      [superAdminMobile]
+    ) as any;
+
+    let superAdminEmployeeId: number;
+
+    if (existingEmployee.length > 0) {
+      // Employee already exists — reuse the same ID
+      superAdminEmployeeId = existingEmployee[0].id;
+      console.log(`SuperAdmin employee already exists with ID: ${superAdminEmployeeId}, skipping creation...`);
+    } else {
+      // Generate next user_id
+      const [maxIdResult] = await db.execute(
+        `SELECT MAX(user_id) as max_id FROM employees`
+      ) as any;
+      const lastId = maxIdResult[0].max_id || "EMP000000";
+      const numericPart = parseInt(lastId.substring(3)) + 1;
+      const newUserId = `EMP${numericPart.toString().padStart(6, "0")}`;
+
+      // Create employee FIRST — we need this id for features and permissions created_by
+      const [empResult] = await db.execute(
+        `INSERT INTO employees (user_id, first_name, last_name, email, mobile, joining_date, status)
+         VALUES (?, ?, ?, ?, ?, CURDATE(), 'Active')`,
+        [newUserId, "Super", "Admin", "superadmin@solarhut.com", superAdminMobile]
+      ) as any;
+      superAdminEmployeeId = empResult.insertId;
+      console.log(`Created SuperAdmin employee with ID: ${superAdminEmployeeId}, user_id: ${newUserId}`);
+    }
+
+    // --- Step 3: Ensure employee_roles assignment exists ---
+    const [existingRole] = await db.execute(
+      `SELECT employee_id FROM employee_roles WHERE employee_id = ? AND role_id = ? LIMIT 1`,
+      [superAdminEmployeeId, superAdminRoleId]
+    ) as any;
+
+    if (existingRole.length === 0) {
+      await db.execute(
+        `INSERT INTO employee_roles (employee_id, role_id, status) VALUES (?, ?, 'Active')`,
+        [superAdminEmployeeId, superAdminRoleId]
+      );
+      console.log(`Assigned SuperAdmin role (ID: ${superAdminRoleId}) to employee ID: ${superAdminEmployeeId}`);
+    } else {
+      console.log(`SuperAdmin role already assigned to employee ID: ${superAdminEmployeeId}, skipping...`);
+    }
+
+    // --- Step 4: Ensure all features exist (created_by = superAdminEmployeeId) and assign permissions ---
+    for (const featureName of allFeatures) {
+      // Get or create the feature
+      const [featureRows] = await db.execute(
+        `SELECT id FROM features WHERE feature_name = ? LIMIT 1`,
+        [featureName]
+      ) as any;
+
+      let featureId: number;
+      if (featureRows.length > 0) {
+        featureId = featureRows[0].id;
+        // Update created_by to current SuperAdmin employee id (in case it was orphaned)
+        await db.execute(
+          `UPDATE features SET created_by = ? WHERE id = ?`,
+          [superAdminEmployeeId, featureId]
+        );
+      } else {
+        // Feature does not exist — create it with superAdminEmployeeId as created_by
+        const [featureResult] = await db.execute(
+          `INSERT INTO features (feature_name, created_by, status) VALUES (?, ?, 'Active')`,
+          [featureName, superAdminEmployeeId]
+        ) as any;
+        featureId = featureResult.insertId;
+        console.log(`Created feature: ${featureName} with ID: ${featureId}`);
+      }
+
+      // Insert permissions only if they don't already exist (INSERT IGNORE skips duplicates)
+      for (const perm of superAdminPermissions) {
+        await db.execute(
+          `INSERT IGNORE INTO permissions (role_id, employee_id, feature_id, permission, created_by, status)
+           VALUES (?, ?, ?, ?, ?, 'Active')`,
+          [superAdminRoleId, superAdminEmployeeId, featureId, perm, superAdminEmployeeId]
+        );
+      }
+    }
+    console.log(`Ensured all permissions (read, create, edit, delete) for all features on SuperAdmin role`);
+
+    console.log("SuperAdmin employee setup completed successfully");
+  } catch (error) {
+    console.error("Error setting up SuperAdmin employee:", error);
+    // Don't throw to prevent app startup failure
   }
 };
 
@@ -1090,6 +1207,9 @@ export const initializeDatabase = async () => {
 
     // Insert default roles if they don't exist
     await insertDefaultRoles();
+
+    // Insert default SuperAdmin employee with role and full permissions
+    await insertDefaultSuperAdminEmployee();
 
     // Insert default countries if they don't exist
     await insertDefaultCountries();

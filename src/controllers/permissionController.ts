@@ -36,9 +36,10 @@ export const createRoleFeaturePermissions = async (req: Request, res: Response) 
 
         // Create permissions
         const insertedIds = await permissionQueries.createRoleFeaturePermissions(
-            role_id, 
-            feature_id, 
-            permissions, 
+            role_id,
+            user.id,
+            feature_id,
+            permissions,
             user.id
         );
 
@@ -103,9 +104,10 @@ export const bulkCreatePermissions = async (req: Request, res: Response) => {
 
             try {
                 const insertedIds = await permissionQueries.createRoleFeaturePermissions(
-                    role_id, 
-                    feature_id, 
-                    perms, 
+                    role_id,
+                    user.id,
+                    feature_id,
+                    perms,
                     user.id
                 );
 
@@ -209,6 +211,7 @@ export const updatePermission = async (req: Request, res: Response) => {
                 // Update permissions for the role-feature combination
                 const insertedIds = await permissionQueries.createRoleFeaturePermissions(
                     existingPermission.role_id,
+                    user.id,
                     existingPermission.feature_id,
                     value.permissions,
                     user.id

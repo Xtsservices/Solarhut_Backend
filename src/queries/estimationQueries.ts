@@ -99,7 +99,7 @@ export const getAllEstimations = async (filters?: { status?: string; state?: str
 
 export const getEstimationById = async (id: number, includeInactive: boolean = false) => {
     let query = 'SELECT * FROM estimations WHERE id = ?';
-    const params = [id];
+    const params: any[] = [id];
     if (!includeInactive) {
         query += ' AND status = ?';
         params.push('Active');

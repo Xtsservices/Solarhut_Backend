@@ -4,6 +4,7 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2';
 export interface Permission extends RowDataPacket {
     id: number;
     role_id: number;
+    employee_id: number;
     feature_id: number;
     permission: 'create' | 'read' | 'edit' | 'delete';
     created_by: number;
@@ -19,25 +20,27 @@ export interface Permission extends RowDataPacket {
 
 // Create a single permission
 export const createPermission = async (
-    roleId: number, 
-    featureId: number, 
-    permission: string, 
-    createdBy: number, 
+    roleId: number,
+    employeeId: number,
+    featureId: number,
+    permission: string,
+    createdBy: number,
     status = 'Active'
 ) => {
     const [result] = await db.execute<ResultSetHeader>(
-        `INSERT INTO permissions (role_id, feature_id, permission, created_by, status)
-         VALUES (?, ?, ?, ?, ?)`,
-        [roleId, featureId, permission, createdBy, status]
+        `INSERT INTO permissions (role_id, employee_id, feature_id, permission, created_by, status)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [roleId, employeeId, featureId, permission, createdBy, status]
     );
     return (result as ResultSetHeader).insertId;
 };
 
 // Create multiple permissions for a role-feature combination
 export const createRoleFeaturePermissions = async (
-    roleId: number, 
-    featureId: number, 
-    permissions: string[], 
+    roleId: number,
+    employeeId: number,
+    featureId: number,
+    permissions: string[],
     createdBy: number
 ) => {
     // First, delete existing permissions for this role-feature combination
@@ -49,7 +52,7 @@ export const createRoleFeaturePermissions = async (
     // Create new permissions
     const insertedIds: number[] = [];
     for (const permission of permissions) {
-        const id = await createPermission(roleId, featureId, permission, createdBy);
+        const id = await createPermission(roleId, employeeId, featureId, permission, createdBy);
         insertedIds.push(id);
     }
     return insertedIds;
@@ -232,7 +235,7 @@ export const hasPermission = async (roleId: number, featureId: number, permissio
 // Get all permissions for an employee based on their roles
 export const getEmployeePermissions = async (employeeId: number) => {
     const [rows] = await db.execute<RowDataPacket[]>(
-        `SELECT DISTINCT f.feature_name
+        `SELECT DISTINCT f.feature_name , f.id AS feature_id
          FROM permissions p
          INNER JOIN roles r ON p.role_id = r.role_id
          INNER JOIN features f ON p.feature_id = f.id
@@ -240,7 +243,7 @@ export const getEmployeePermissions = async (employeeId: number) => {
          WHERE er.employee_id = ? 
            AND p.status = 'Active' 
            AND er.status = 'Active'
-         ORDER BY f.feature_name`,
+        `,
         [employeeId]
     );
      return rows.map(row => row.feature_name);
