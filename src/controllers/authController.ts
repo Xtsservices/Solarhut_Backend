@@ -117,9 +117,6 @@ export const verifyOTP = async (req: Request, res: Response) => {
 
         // Get employee permissions with sub-features
         const featuresWithSubFeatures = await permissionQueries.getEmployeePermissionsWithSubFeatures(employee.id);
-        
-        // Get simple permissions list for token and backward compatibility
-        const permissions = await permissionQueries.getEmployeePermissions(employee.id);
 
         // Create token payload with required employee data
         const tokenPayload: TokenPayload = {
@@ -149,8 +146,7 @@ export const verifyOTP = async (req: Request, res: Response) => {
                     mobile: employee.mobile,
                     status: employee.status,
                     roles: employee.roles || [],
-                    permissions: permissions, // Feature names array (backward compatibility)  
-                    features: featuresWithSubFeatures // Features with sub-features
+                    features: featuresWithSubFeatures // Features with sub-features and permissions
                 }
             }
         });
@@ -195,9 +191,6 @@ export const myProfile = async (req: Request, res: Response) => {
 
         // Get employee permissions with sub-features
         const featuresWithSubFeatures = await permissionQueries.getEmployeePermissionsWithSubFeatures(employee.id);
-        
-        // Get simple permissions list for backward compatibility
-        const permissions = await permissionQueries.getEmployeePermissions(employee.id);
 
         // Return the same format as login response with enhanced features data
         res.json({
@@ -217,8 +210,7 @@ export const myProfile = async (req: Request, res: Response) => {
                     created_at: employee.created_at,
                     updated_at: employee.updated_at,
                     roles: employee.roles || [],
-                    permissions: permissions, // Feature names array (backward compatibility)
-                    features: featuresWithSubFeatures // Features with sub-features
+                    features: featuresWithSubFeatures // Features with sub-features and permissions
                 }
             }
         });

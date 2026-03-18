@@ -348,7 +348,6 @@ export const getEmployeePermissionsWithSubFeatures = async (employeeId: number) 
         id: feature.id,
         feature_name: feature.feature_name,
         permissions: feature.permissions.sort().join(','), // Comma-separated permissions (sorted)
-        permissions_array: feature.permissions.sort(), // Array format (sorted)
         sub_features: feature.sub_features.sort((a: any, b: any) => a.display_order - b.display_order) // Sort by display_order
     }));
     
