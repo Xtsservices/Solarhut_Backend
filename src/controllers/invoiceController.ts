@@ -34,7 +34,8 @@ export const createInvoiceHandler = async (req: Request, res: Response) => {
       estimation_id: estimationId,
       invoiceDate: req.body.invoiceDate,
       amount,
-      product_description: product_description !== undefined ? product_description : estimation.product_description
+      product_description: product_description !== undefined ? product_description : estimation.product_description,
+      status: 'Active'
     };
     const invoice = await createInvoice(invoiceToInsert);
     res.status(201).json(invoice);

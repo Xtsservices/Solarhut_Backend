@@ -414,7 +414,7 @@ export async function generateTaxInvoicePDF(invoiceData: any): Promise<Buffer> {
       
       colX += colSl;
       doc.font('Helvetica-Bold').fontSize(8.65);
-      doc.text('VIKRAM SOLAR PANELS', colX + 2, y + 5, { width: colDesc - 4 });
+      doc.text('Design Installation and Commissioning', colX + 2, y + 5, { width: colDesc - 4 });
       doc.font('Helvetica').fontSize(8.65);
       doc.moveTo(colX + colDesc, y).lineTo(colX + colDesc, y + productRowHeight).lineWidth(0.5).stroke();
       

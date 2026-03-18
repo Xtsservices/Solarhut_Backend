@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as featureQueries from '../queries/featureQueries';
 import * as permissionQueries from '../queries/permissionQueries';
+import * as subFeatureQueries from '../queries/subFeatureQueries';
 import { featureSchema } from '../utils/validations';
 import { allFeatures } from '../utils/common';
 
@@ -206,4 +207,54 @@ export const allfeatures = async (req: Request, res: Response) => {
     }
 };
 
-export default { createFeature,allfeatures, editFeature, deleteFeature, getFeature, listFeatures, listMyFeatures };
+// New endpoint to get user's features with sub-features
+export const listMyFeaturesWithSubFeatures = async (req: Request, res: Response) => {
+    try {
+        const user = (res.locals as any).user;
+        if (!user || !user.id) {
+            return res.status(401).json({ success: false, message: 'User information not found' });
+        }
+
+        console.log('listMyFeaturesWithSubFeatures - User Id:', user.id);
+        
+        // Get features with sub-features based on user permissions
+        const featuresWithSubFeatures = await permissionQueries.getEmployeePermissionsWithSubFeatures(user.id);
+        
+        res.json({ success: true, data: featuresWithSubFeatures });
+    } catch (err) {
+        console.error('Error listing user features with sub-features:', err);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error listing user features with sub-features', 
+            error: process.env.NODE_ENV === 'development' ? err : undefined 
+        });
+    }
+};
+
+// Get all features with sub-features (admin endpoint)
+export const listFeaturesWithSubFeatures = async (req: Request, res: Response) => {
+    try {
+        const onlyActive = req.query.active === 'true';
+        const featuresWithSubFeatures = await subFeatureQueries.getFeaturesWithSubFeatures(onlyActive);
+        res.json({ success: true, data: featuresWithSubFeatures });
+    } catch (err) {
+        console.error('Error listing features with sub-features:', err);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error listing features with sub-features', 
+            error: process.env.NODE_ENV === 'development' ? err : undefined 
+        });
+    }
+};
+
+export default { 
+    createFeature, 
+    allfeatures, 
+    editFeature, 
+    deleteFeature, 
+    getFeature, 
+    listFeatures, 
+    listMyFeatures,
+    listMyFeaturesWithSubFeatures,
+    listFeaturesWithSubFeatures
+};

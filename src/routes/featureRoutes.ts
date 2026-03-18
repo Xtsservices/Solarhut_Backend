@@ -1,5 +1,15 @@
 import { Router } from 'express';
-import { createFeature, editFeature, deleteFeature, getFeature, listFeatures, listMyFeatures, allfeatures } from '../controllers/featureController';
+import { 
+    createFeature, 
+    editFeature, 
+    deleteFeature, 
+    getFeature, 
+    listFeatures, 
+    listMyFeatures, 
+    allfeatures,
+    listMyFeaturesWithSubFeatures,
+    listFeaturesWithSubFeatures 
+} from '../controllers/featureController';
 import { authenticate } from '../middleware/auth';
 import { validateRequest } from '../middleware/validateRequest';
 import { featureSchema } from '../utils/validations';
@@ -12,8 +22,14 @@ router.get('/', listFeatures);
 //get static features (must be before /:id route)
 router.get('/allfeatures', allfeatures);
 
+// Get all features with sub-features
+router.get('/with-subfeatures', listFeaturesWithSubFeatures);
+
 // Authenticated: get current user's features
 router.get('/my/features', authenticate, listMyFeatures);
+
+// Authenticated: get current user's features with sub-features  
+router.get('/my/features-with-subfeatures', authenticate, listMyFeaturesWithSubFeatures);
 
 // Public: get feature by id (must be after specific routes)
 router.get('/:id', getFeature);

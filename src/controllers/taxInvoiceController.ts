@@ -59,10 +59,11 @@ export const createTaxInvoice = async (req: Request, res: Response) => {
       sgst_value,
       sgst_percentage,
       igst_value,
-      igst_percentage
+      igst_percentage,
+      status: 'Active'
     };
-    // Check if tax invoice already exists for this estimation
-    const [rows]: [any[], any] = await (await import('../db')).db.query('SELECT * FROM tax_invoices WHERE estimation_id = ?', [estimationId]);
+    // Check if active tax invoice already exists for this estimation
+    const [rows]: [any[], any] = await (await import('../db')).db.query('SELECT * FROM tax_invoices WHERE estimation_id = ? AND status = ?', [estimationId, 'Active']);
     if (rows && rows.length > 0) {
       const updatedTaxInvoice = await updateTaxInvoiceByEstimationId(estimationId, taxInvoiceToInsert);
       return res.status(200).json(updatedTaxInvoice);

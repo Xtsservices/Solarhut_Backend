@@ -5,7 +5,7 @@ import { indianDistricts } from "./utils/districts";
 import * as countryQueries from "./queries/countryQueries";
 import * as stateQueries from "./queries/stateQueries";
 import * as districtQueries from "./queries/districtQueries";
-import { allFeatures } from "./utils/common";
+import { allFeatures, subFeaturesMap } from "./utils/common";
 
 const createRolesTable = `
 CREATE TABLE IF NOT EXISTS roles (
@@ -136,6 +136,28 @@ CREATE TABLE IF NOT EXISTS features (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_status (status),
     INDEX idx_created_by (created_by),
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE
+)
+`;
+
+const createSubFeaturesTable = `
+CREATE TABLE IF NOT EXISTS sub_features (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    feature_id INT NOT NULL,
+    sub_feature_name VARCHAR(255) NOT NULL,
+    sub_feature_key VARCHAR(100) NOT NULL,
+    display_order INT DEFAULT 1,
+    created_by INT NOT NULL,
+    status ENUM('Active','Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_feature_sub_feature (feature_id, sub_feature_key),
+    INDEX idx_feature_id (feature_id),
+    INDEX idx_sub_feature_key (sub_feature_key),
+    INDEX idx_status (status),
+    INDEX idx_created_by (created_by),
+    INDEX idx_display_order (display_order),
+    FOREIGN KEY (feature_id) REFERENCES features(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE
 )
 `;
@@ -766,6 +788,45 @@ const insertDefaultSuperAdminEmployee = async () => {
     }
     console.log(`Ensured all permissions (read, create, edit, delete) for all features on SuperAdmin role`);
 
+    // --- Step 5: Ensure all sub-features exist for features with sub-features ---
+    for (const featureName of Object.keys(subFeaturesMap)) {
+      // Get the feature ID
+      const [featureRows] = await db.execute(
+        `SELECT id FROM features WHERE feature_name = ? LIMIT 1`,
+        [featureName]
+      ) as any;
+
+      if (featureRows.length > 0) {
+        const featureId = featureRows[0].id;
+        const subFeatures = subFeaturesMap[featureName as keyof typeof subFeaturesMap];
+
+        for (const subFeature of subFeatures) {
+          // Check if sub-feature already exists
+          const [subFeatureRows] = await db.execute(
+            `SELECT id FROM sub_features WHERE feature_id = ? AND sub_feature_key = ? LIMIT 1`,
+            [featureId, subFeature.key]
+          ) as any;
+
+          if (subFeatureRows.length === 0) {
+            // Sub-feature does not exist — create it
+            const [subFeatureResult] = await db.execute(
+              `INSERT INTO sub_features (feature_id, sub_feature_name, sub_feature_key, display_order, created_by, status) 
+               VALUES (?, ?, ?, ?, ?, 'Active')`,
+              [featureId, subFeature.name, subFeature.key, subFeature.display_order, superAdminEmployeeId]
+            ) as any;
+            console.log(`Created sub-feature: ${subFeature.name} for feature: ${featureName} with ID: ${subFeatureResult.insertId}`);
+          } else {
+            // Update existing sub-feature to ensure consistency
+            await db.execute(
+              `UPDATE sub_features SET sub_feature_name = ?, display_order = ? WHERE feature_id = ? AND sub_feature_key = ?`,
+              [subFeature.name, subFeature.display_order, featureId, subFeature.key]
+            );
+          }
+        }
+      }
+    }
+    console.log(`Ensured all sub-features exist for features with sub-feature mappings`);
+
     console.log("SuperAdmin employee setup completed successfully");
   } catch (error) {
     console.error("Error setting up SuperAdmin employee:", error);
@@ -1195,6 +1256,7 @@ export const initializeDatabase = async () => {
     await db.execute(createOTPVerificationTable);
     await db.execute(createPackagesTable);
     await db.execute(createFeaturesTable);
+    await db.execute(createSubFeaturesTable);
     await db.execute(createCountriesTable);
     await db.execute(createStatesTable);
     await db.execute(createDistrictsTable);

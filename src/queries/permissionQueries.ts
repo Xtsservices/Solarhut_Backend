@@ -270,6 +270,91 @@ export const getEmployeePermissions = async (employeeId: number) => {
     return rows.map(row => row.feature_name);
 };
 
+// Get employee permissions with sub-features information
+export const getEmployeePermissionsWithSubFeatures = async (employeeId: number) => {
+    console.log('getEmployeePermissionsWithSubFeatures called with employeeId:', employeeId);
+    
+    // First get all features with their permissions
+    const [permissionRows] = await db.execute<RowDataPacket[]>(
+        `SELECT DISTINCT 
+                f.id AS feature_id,
+                f.feature_name,
+                p.permission
+         FROM permissions p
+         INNER JOIN features f ON p.feature_id = f.id
+         INNER JOIN employee_roles er ON p.role_id = er.role_id AND er.employee_id = ?
+         WHERE p.employee_id = ?
+           AND p.status = 'Active'
+           AND er.status = 'Active'
+         ORDER BY f.feature_name, p.permission`,
+        [employeeId, employeeId]
+    );
+
+    // Then get sub-features for those features
+    const [subFeatureRows] = await db.execute<RowDataPacket[]>(
+        `SELECT DISTINCT 
+                sf.feature_id,
+                sf.id AS sub_feature_id,
+                sf.sub_feature_name,
+                sf.display_order
+         FROM sub_features sf
+         INNER JOIN features f ON sf.feature_id = f.id
+         INNER JOIN permissions p ON p.feature_id = f.id
+         INNER JOIN employee_roles er ON p.role_id = er.role_id AND er.employee_id = ?
+         WHERE p.employee_id = ?
+           AND p.status = 'Active'
+           AND er.status = 'Active'
+           AND sf.status = 'Active'
+         ORDER BY sf.feature_id, sf.display_order`,
+        [employeeId, employeeId]
+    );
+
+    // Group permissions by feature
+    const featuresMap = new Map();
+    
+    // Process permissions
+    permissionRows.forEach(row => {
+        const featureId = row.feature_id;
+        
+        if (!featuresMap.has(featureId)) {
+            featuresMap.set(featureId, {
+                id: row.feature_id,
+                feature_name: row.feature_name,
+                permissions: [],
+                sub_features: []
+            });
+        }
+        
+        const feature = featuresMap.get(featureId);
+        if (!feature.permissions.includes(row.permission)) {
+            feature.permissions.push(row.permission);
+        }
+    });
+    
+    // Process sub-features
+    subFeatureRows.forEach(row => {
+        if (featuresMap.has(row.feature_id)) {
+            const feature = featuresMap.get(row.feature_id);
+            feature.sub_features.push({
+                id: row.sub_feature_id,
+                sub_feature_name: row.sub_feature_name,
+                display_order: row.display_order
+            });
+        }
+    });
+    
+    // Convert permissions array to comma-separated string and sort sub-features
+    const result = Array.from(featuresMap.values()).map(feature => ({
+        id: feature.id,
+        feature_name: feature.feature_name,
+        permissions: feature.permissions.sort().join(','), // Comma-separated permissions (sorted)
+        permissions_array: feature.permissions.sort(), // Array format (sorted)
+        sub_features: feature.sub_features.sort((a: any, b: any) => a.display_order - b.display_order) // Sort by display_order
+    }));
+    
+    return result;
+};
+
 // Get all active permissions for a specific employee (by employee_id in permissions table)
 export const getActivePermissionsByEmployeeId = async (employeeId: number) => {
     const [rows] = await db.execute<RowDataPacket[]>(

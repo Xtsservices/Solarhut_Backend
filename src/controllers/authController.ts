@@ -115,7 +115,10 @@ export const verifyOTP = async (req: Request, res: Response) => {
             });
         }
 
-        // Get employee permissions based on their roles
+        // Get employee permissions with sub-features
+        const featuresWithSubFeatures = await permissionQueries.getEmployeePermissionsWithSubFeatures(employee.id);
+        
+        // Get simple permissions list for token and backward compatibility
         const permissions = await permissionQueries.getEmployeePermissions(employee.id);
 
         // Create token payload with required employee data
@@ -146,7 +149,8 @@ export const verifyOTP = async (req: Request, res: Response) => {
                     mobile: employee.mobile,
                     status: employee.status,
                     roles: employee.roles || [],
-                    permissions: permissions
+                    permissions: permissions, // Feature names array (backward compatibility)  
+                    features: featuresWithSubFeatures // Features with sub-features
                 }
             }
         });
@@ -189,10 +193,13 @@ export const myProfile = async (req: Request, res: Response) => {
             });
         }
 
-        // Get employee permissions based on their roles
+        // Get employee permissions with sub-features
+        const featuresWithSubFeatures = await permissionQueries.getEmployeePermissionsWithSubFeatures(employee.id);
+        
+        // Get simple permissions list for backward compatibility
         const permissions = await permissionQueries.getEmployeePermissions(employee.id);
 
-        // Return the same format as login response
+        // Return the same format as login response with enhanced features data
         res.json({
             success: true,
             message: 'Profile retrieved successfully',
@@ -210,7 +217,8 @@ export const myProfile = async (req: Request, res: Response) => {
                     created_at: employee.created_at,
                     updated_at: employee.updated_at,
                     roles: employee.roles || [],
-                    permissions: permissions
+                    permissions: permissions, // Feature names array (backward compatibility)
+                    features: featuresWithSubFeatures // Features with sub-features
                 }
             }
         });

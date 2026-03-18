@@ -125,9 +125,13 @@ export const updateEstimation = async (
     const values: any[] = [];
 
     Object.entries(updateData).forEach(([key, value]) => {
-        if (value !== undefined && key !== 'updated_at') {
+        // Allow empty strings and numbers (including 0), but exclude null and undefined
+        if (value !== undefined && value !== null && key !== 'updated_at') {
             fields.push(`${key} = ?`);
             values.push(value);
+            console.log(`DEBUG - Adding field: ${key} = ${value}`);
+        } else {
+            console.log(`DEBUG - Skipping field: ${key} = ${value} (null/undefined)`);
         }
     });
 
@@ -139,8 +143,12 @@ export const updateEstimation = async (
     values.push(updatedBy);
     values.push(id);
 
+    const query = `UPDATE estimations SET ${fields.join(', ')} WHERE id = ?`;
+    console.log('DEBUG - Final query:', query);
+    console.log('DEBUG - Final values:', values);
+
     const [result] = await db.execute<ResultSetHeader>(
-        `UPDATE estimations SET ${fields.join(', ')} WHERE id = ?`,
+        query,
         values
     );
 

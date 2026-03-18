@@ -3,7 +3,7 @@ import * as estimationQueries from '../queries/estimationQueries';
 // Import PDF generator and employee queries
 const { generateEstimationPDF } = require('../utils/pdfgenerate');
 const employeeQueries = require('../queries/employeeQueries');
-import { estimationSchema } from '../utils/validations';
+import { estimationSchema, estimationUpdateSchema } from '../utils/validations';
 
 export const createEstimation = async (req: Request, res: Response) => {
     try {
@@ -131,7 +131,25 @@ export const updateEstimation = async (req: Request, res: Response) => {
         const user = (res.locals as any).user;
         const updatedBy = user?.employee_id || req.body.updated_by || null;
 
-        const updated = await estimationQueries.updateEstimation(id, req.body, updatedBy);
+        console.log('DEBUG - UpdateEstimation called with:');
+        console.log('ID:', id);
+        console.log('Request Body:', JSON.stringify(req.body, null, 2));
+        console.log('Updated By:', updatedBy);
+
+        // Validate update data
+        const { error, value } = estimationUpdateSchema.validate(req.body, { stripUnknown: true });
+        if (error) {
+            console.log('DEBUG - Validation error:', error.details);
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                errors: error.details.map((d) => d.message)
+            });
+        }
+
+        console.log('DEBUG - Validated data:', JSON.stringify(value, null, 2));
+
+        const updated = await estimationQueries.updateEstimation(id, value, updatedBy);
 
         if (!updated) {
             return res.status(404).json({
@@ -141,6 +159,8 @@ export const updateEstimation = async (req: Request, res: Response) => {
         }
 
         const estimation = await estimationQueries.getEstimationById(id);
+        console.log('DEBUG - Updated estimation:', JSON.stringify(estimation, null, 2));
+        
         res.json({
             success: true,
             message: 'Estimation updated successfully',
