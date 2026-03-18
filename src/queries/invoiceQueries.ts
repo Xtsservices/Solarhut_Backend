@@ -45,15 +45,16 @@ export async function updateTaxInvoiceByEstimationId(estimationId: number, updat
   }
   
   if (setClauses.length === 0) {
-    const [rows]: [any[], any] = await db.query('SELECT * FROM tax_invoices WHERE estimation_id = ? LIMIT 1', [estimationId]);
+    const [rows]: [any[], any] = await db.query('SELECT * FROM tax_invoices WHERE estimation_id = ? AND status = ? LIMIT 1', [estimationId, 'Active']);
     return rows[0];
   }
   
+  // Only update active tax invoices
   await db.query(
-    `UPDATE tax_invoices SET ${setClauses.join(', ')} WHERE estimation_id = ?`,
-    [...values, estimationId]
+    `UPDATE tax_invoices SET ${setClauses.join(', ')} WHERE estimation_id = ? AND status = ?`,
+    [...values, estimationId, 'Active']
   );
-  const [rows]: [any[], any] = await db.query('SELECT * FROM tax_invoices WHERE estimation_id = ? LIMIT 1', [estimationId]);
+  const [rows]: [any[], any] = await db.query('SELECT * FROM tax_invoices WHERE estimation_id = ? AND status = ? LIMIT 1', [estimationId, 'Active']);
   return rows[0];
 }
 

@@ -52,6 +52,29 @@ export const estimationSchema = Joi.object({
     // created_at, updated_at are handled by DB
 });
 
+// Flexible schema for updates - all fields optional except basic validation
+export const estimationUpdateSchema = Joi.object({
+    customer_name: Joi.string().max(200),
+    door_no: Joi.string().max(50),
+    area: Joi.string().max(100),
+    city: Joi.string().max(100),
+    district: Joi.string().max(100),
+    state: Joi.string().max(100),
+    pincode: Joi.string().pattern(/^\d{6}$/).messages({
+        'string.pattern.base': 'Pincode must be a 6 digit number.'
+    }),
+    mobile: Joi.string().pattern(/^\d{10,15}$/).messages({
+        'string.pattern.base': 'Mobile must be 10-15 digits.'
+    }),
+    structure: Joi.string().max(100).allow('', null),
+    product_description: Joi.string().allow('', null),
+    requested_watts: Joi.string().allow('', null),
+    gst: Joi.number().min(0).max(100),
+    amount: Joi.number().min(0),
+    updated_by: Joi.number().integer().allow(null),
+    status: Joi.string().valid('Active', 'Inactive'),
+}).min(1); // At least one field must be provided
+
 
 export const employeeSchema = {
     create: Joi.object({
