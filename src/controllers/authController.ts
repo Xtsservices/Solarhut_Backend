@@ -116,7 +116,17 @@ export const verifyOTP = async (req: Request, res: Response) => {
         }
 
         // Get employee permissions with sub-features
-        const featuresWithSubFeatures = await permissionQueries.getEmployeePermissionsWithSubFeatures(employee.id);
+        console.log('🔍 LOGIN DEBUG - Getting permissions for employee:', employee.id);
+        let featuresWithSubFeatures: string | any[] = [];
+        
+        try {
+            featuresWithSubFeatures = await permissionQueries.getEmployeePermissionsWithSubFeatures(employee.id);
+            console.log('✅ LOGIN DEBUG - Permissions fetched successfully:', featuresWithSubFeatures.length, 'features');
+        } catch (permError) {
+            console.error('❌ LOGIN DEBUG - Permission query failed:', permError);
+            // Continue with login even if permissions fail
+            featuresWithSubFeatures = [];
+        }
 
         // Create token payload with required employee data
         const tokenPayload: TokenPayload = {
@@ -129,8 +139,12 @@ export const verifyOTP = async (req: Request, res: Response) => {
             roles: employee.roles?.map(role => role.role_name) || []
         };
 
+        console.log('🔍 LOGIN DEBUG - Creating token for user:', tokenPayload.user_id);
+
         // Generate JWT token with complete employee data
         const token = generateToken(tokenPayload);
+
+        console.log('✅ LOGIN DEBUG - Token generated successfully');
 
         res.json({
             success: true,
@@ -190,7 +204,17 @@ export const myProfile = async (req: Request, res: Response) => {
         }
 
         // Get employee permissions with sub-features
-        const featuresWithSubFeatures = await permissionQueries.getEmployeePermissionsWithSubFeatures(employee.id);
+        console.log('🔍 PROFILE DEBUG - Getting permissions for employee:', employee.id);
+        let featuresWithSubFeatures: string | any[] = [];
+        
+        try {
+            featuresWithSubFeatures = await permissionQueries.getEmployeePermissionsWithSubFeatures(employee.id);
+            console.log('✅ PROFILE DEBUG - Permissions fetched successfully:', featuresWithSubFeatures.length, 'features');
+        } catch (permError) {
+            console.error('❌ PROFILE DEBUG - Permission query failed:', permError);
+            // Continue with profile even if permissions fail
+            featuresWithSubFeatures = [];
+        }
 
         // Return the same format as login response with enhanced features data
         res.json({

@@ -21,12 +21,12 @@ router.use(authenticate);
 
 // @route   POST /api/employees
 // @desc    Create a new employee with roles
-// @access  Private (Requires 'create' permission for 'Employees' feature)
-router.post('/', canCreate('Employees'), validateRequest(employeeSchema.create), createEmployee);
+// @access  Private (Authenticated users only)
+router.post('/', validateRequest(employeeSchema.create), createEmployee);
 
 // @route   GET /api/employees
 // @desc    Get all employees with their roles
-// @access  Private (Admin only)
+// @access  Private (Authenticated users only)
 router.get('/', getAllEmployees);
 
 // @route   GET /api/employees/role/:roleId
