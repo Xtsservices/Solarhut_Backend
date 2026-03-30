@@ -29,7 +29,16 @@ export const deleteTaxInvoiceValidation = Joi.object({
 });
 
 export const estimationSchema = Joi.object({
-    customer_name: Joi.string().max(200).required(),
+    first_name: Joi.string().max(100).required(),
+    last_name: Joi.string().max(100).required(),
+    mobile: Joi.string().pattern(/^\d{10,15}$/).required().messages({
+        'string.pattern.base': 'Mobile must be 10-15 digits.'
+    }),
+    email: Joi.string().email().allow('', null),
+    customer_name: Joi.string().max(200),
+    customer_id: Joi.number().integer().allow(null),
+    job_id: Joi.number().integer().allow(null),
+    lead_id: Joi.number().integer().allow(null),
     door_no: Joi.string().max(50).required(),
     area: Joi.string().max(100).required(),
     city: Joi.string().max(100).required(),
@@ -38,9 +47,9 @@ export const estimationSchema = Joi.object({
     pincode: Joi.string().pattern(/^\d{6}$/).required().messages({
         'string.pattern.base': 'Pincode must be a 6 digit number.'
     }),
-    mobile: Joi.string().pattern(/^\d{10,15}$/).required().messages({
-        'string.pattern.base': 'Mobile must be 10-15 digits.'
-    }),
+    solar_service: Joi.string().valid('Commercial', 'Residential', 'Industrial').default('Residential'),
+    service_type: Joi.string().valid('Installation', 'Maintenance', 'Repair', 'Battery Replacement', 'Inverter Replacement', 'Panel Cleaning', 'System Upgrade', 'Energy Audit', 'Consultation', 'Other').default('Installation'),
+    inverter_capacity: Joi.string().max(100).allow('', null),
     structure: Joi.string().max(100).allow('', null),
     product_description: Joi.string().allow('', null),
     requested_watts: Joi.string().allow('', null),
@@ -48,13 +57,22 @@ export const estimationSchema = Joi.object({
     amount: Joi.number().min(0).required(),
     created_by: Joi.number().integer().allow(null),
     updated_by: Joi.number().integer().allow(null),
-    status: Joi.string().valid('Active', 'Inactive').default('Active'),
+    status: Joi.string().valid('Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done').default('Active'),
     // created_at, updated_at are handled by DB
 });
 
 // Flexible schema for updates - all fields optional except basic validation
 export const estimationUpdateSchema = Joi.object({
+    first_name: Joi.string().max(100),
+    last_name: Joi.string().max(100),
+    mobile: Joi.string().pattern(/^\d{10,15}$/).messages({
+        'string.pattern.base': 'Mobile must be 10-15 digits.'
+    }),
+    email: Joi.string().email().allow('', null),
     customer_name: Joi.string().max(200),
+    customer_id: Joi.number().integer().allow(null),
+    job_id: Joi.number().integer().allow(null),
+    lead_id: Joi.number().integer().allow(null),
     door_no: Joi.string().max(50),
     area: Joi.string().max(100),
     city: Joi.string().max(100),
@@ -63,17 +81,70 @@ export const estimationUpdateSchema = Joi.object({
     pincode: Joi.string().pattern(/^\d{6}$/).messages({
         'string.pattern.base': 'Pincode must be a 6 digit number.'
     }),
-    mobile: Joi.string().pattern(/^\d{10,15}$/).messages({
-        'string.pattern.base': 'Mobile must be 10-15 digits.'
-    }),
+    solar_service: Joi.string().valid('Commercial', 'Residential', 'Industrial'),
+    service_type: Joi.string().valid('Installation', 'Maintenance', 'Repair', 'Battery Replacement', 'Inverter Replacement', 'Panel Cleaning', 'System Upgrade', 'Energy Audit', 'Consultation', 'Other'),
+    inverter_capacity: Joi.string().max(100).allow('', null),
     structure: Joi.string().max(100).allow('', null),
     product_description: Joi.string().allow('', null),
     requested_watts: Joi.string().allow('', null),
     gst: Joi.number().min(0).max(100),
     amount: Joi.number().min(0),
+    final_amount: Joi.number().min(0),
     updated_by: Joi.number().integer().allow(null),
-    status: Joi.string().valid('Active', 'Inactive'),
+    status: Joi.string().valid('Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done'),
 }).min(1); // At least one field must be provided
+
+// Employee estimation creation schema (without GST for employees)
+export const employeeEstimationSchema = Joi.object({
+    first_name: Joi.string().max(100).required(),
+    last_name: Joi.string().max(100).required(),
+    mobile: Joi.string().pattern(/^\d{10,15}$/).required().messages({
+        'string.pattern.base': 'Mobile must be 10-15 digits.'
+    }),
+    email: Joi.string().email().allow('', null),
+    customer_name: Joi.string().max(200),
+    customer_id: Joi.number().integer().allow(null),
+    job_id: Joi.number().integer().allow(null),
+    lead_id: Joi.number().integer().allow(null),
+    door_no: Joi.string().max(50).required(),
+    area: Joi.string().max(100).required(),
+    city: Joi.string().max(100).required(),
+    district: Joi.string().max(100).required(),
+    state: Joi.string().max(100).required(),
+    pincode: Joi.string().pattern(/^\d{6}$/).required().messages({
+        'string.pattern.base': 'Pincode must be a 6 digit number.'
+    }),
+    solar_service: Joi.string().valid('Commercial', 'Residential', 'Industrial').required(),
+    service_type: Joi.string().valid('Installation', 'Maintenance', 'Repair', 'Battery Replacement', 'Inverter Replacement', 'Panel Cleaning', 'System Upgrade', 'Energy Audit', 'Consultation', 'Other').required(),
+    inverter_capacity: Joi.string().max(100).allow('', null),
+    structure: Joi.string().max(100).allow('', null),
+    product_description: Joi.string().allow('', null),
+    requested_watts: Joi.string().allow('', null),
+    amount: Joi.number().min(0).required(),
+    // GST is not allowed for employees - it will be added during approval
+    gst: Joi.forbidden().messages({
+        'any.unknown': 'GST percentage is not allowed for employee estimations. It will be set during approval.'
+    })
+});
+
+// Approval schema for SuperAdmin/Admin
+export const estimationApprovalSchema = Joi.object({
+    gst: Joi.number().min(0).max(100).required().messages({
+        'any.required': 'GST percentage is required for approval'
+    }),
+    final_amount: Joi.number().min(0).required().messages({
+        'any.required': 'Final amount is required for approval'
+    }),
+    approval_notes: Joi.string().max(1000).allow('', null),
+});
+
+// Rejection schema
+export const estimationRejectionSchema = Joi.object({
+    rejection_reason: Joi.string().min(10).max(1000).required().messages({
+        'string.min': 'Rejection reason must be at least 10 characters long',
+        'any.required': 'Rejection reason is required'
+    })
+});
 
 
 export const employeeSchema = {
@@ -860,69 +931,23 @@ export const customerSchema = {
             .optional()
     }),
     update: Joi.object({
-        first_name: Joi.string()
-            .min(2)
-            .max(100)
-            .optional()
-            .trim(),
-        last_name: Joi.string()
-            .max(100)
-            .optional()
-            .allow(null, '')
-            .trim(),
-        full_name: Joi.string()
-            .min(2)
-            .max(200)
-            .optional()
-            .trim(),
-        mobile: Joi.string()
-            .pattern(/^(\+\d{7,15}|[6-9]\d{9})$/)
-            .optional(),
-        email: Joi.string()
-            .email()
-            .optional()
-            .allow(null, ''),
-        alternate_mobile: Joi.string()
-            .pattern(/^(\+\d{7,15}|[6-9]\d{9})$/)
-            .optional()
-            .allow(null, ''),
-        date_of_birth: Joi.date()
-            .optional()
-            .allow(null),
-        gender: Joi.string()
-            .valid('Male', 'Female', 'Other')
-            .optional()
-            .allow(null),
-        customer_type: Joi.string()
-            .valid('Individual', 'Business', 'Corporate')
-            .optional(),
-        company_name: Joi.string()
-            .max(255)
-            .optional()
-            .allow(null, '')
-            .trim(),
-        gst_number: Joi.string()
-            .pattern(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/)
-            .optional()
-            .allow(null, ''),
-        pan_number: Joi.string()
-            .pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/)
-            .optional()
-            .allow(null, ''),
-        lead_source: Joi.string()
-            .max(100)
-            .optional()
-            .allow(null, '')
-            .trim(),
-        notes: Joi.string()
-            .max(1000)
-            .optional()
-            .allow(null, '')
-            .trim(),
-        status: Joi.string()
-            .valid('Active', 'Inactive', 'Blacklisted')
-            .optional()
-    })
+        // NO VALIDATIONS - All fields are optional and accept any value
+        first_name: Joi.any().optional(),
+        last_name: Joi.any().optional(),
+        full_name: Joi.any().optional(),
+        mobile: Joi.any().optional(),
+        email: Joi.any().optional(),
+        alternate_mobile: Joi.any().optional(),
+        date_of_birth: Joi.any().optional(),
+        gender: Joi.any().optional(),
+        customer_type: Joi.any().optional(),
+        company_name: Joi.any().optional(),
+        gst_number: Joi.any().optional(),
+        pan_number: Joi.any().optional(),
+        lead_source: Joi.any().optional(),
+        notes: Joi.any().optional(),
+        status: Joi.any().optional()
+    }).unknown(true)
 };
 
 // Customer Location validation schemas
@@ -1056,6 +1081,171 @@ export const customerLocationSchema = {
             .allow(null),
         is_primary: Joi.boolean()
             .optional()
+    })
+};
+
+// Customer Services validation schemas
+export const customerServiceSchema = {
+    create: Joi.object({
+        customer_id: Joi.number()
+            .integer()
+            .positive()
+            .required()
+            .messages({
+                'number.base': 'Customer ID must be a number',
+                'number.integer': 'Customer ID must be an integer',
+                'number.positive': 'Customer ID must be positive',
+                'any.required': 'Customer ID is required'
+            }),
+        service_type: Joi.string()
+            .valid('Solar Installation', 'Solar Maintenance', 'Solar Consultation', 'System Upgrade', 'Battery Installation', 'Inverter Replacement', 'Panel Cleaning', 'System Repair', 'Energy Audit', 'Other')
+            .required()
+            .messages({
+                'any.required': 'Service type is required',
+                'any.only': 'Invalid service type'
+            }),
+        service_status: Joi.string()
+            .valid('Inquiry', 'Quotation', 'In Progress', 'Completed', 'Cancelled', 'On Hold')
+            .optional()
+            .default('Inquiry'),
+        solar_service: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, '')
+            .trim(),
+        estimated_capacity: Joi.string()
+            .max(50)
+            .optional()
+            .allow(null, '')
+            .trim(),
+        estimated_cost: Joi.number()
+            .positive()
+            .optional()
+            .allow(null),
+        service_description: Joi.string()
+            .max(1000)
+            .optional()
+            .allow(null, '')
+            .trim(),
+        lead_id: Joi.number()
+            .integer()
+            .positive()
+            .optional()
+            .allow(null),
+        job_id: Joi.number()
+            .integer()
+            .positive()
+            .optional()
+            .allow(null),
+        estimation_id: Joi.number()
+            .integer()
+            .positive()
+            .optional()
+            .allow(null),
+        package_id: Joi.number()
+            .integer()
+            .positive()
+            .optional()
+            .allow(null),
+        priority: Joi.string()
+            .valid('Low', 'Medium', 'High', 'Urgent')
+            .optional()
+            .default('Medium'),
+        source: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, '')
+            .trim(),
+        notes: Joi.string()
+            .max(1000)
+            .optional()
+            .allow(null, '')
+            .trim()
+    }),
+    update: Joi.object({
+        service_status: Joi.string()
+            .valid('Inquiry', 'Quotation', 'In Progress', 'Completed', 'Cancelled', 'On Hold')
+            .optional(),
+        estimated_cost: Joi.number()
+            .positive()
+            .optional()
+            .allow(null),
+        actual_cost: Joi.number()
+            .positive()
+            .optional()
+            .allow(null),
+        completion_date: Joi.date()
+            .iso()
+            .optional()
+            .allow(null),
+        service_description: Joi.string()
+            .max(1000)
+            .optional()
+            .allow(null, '')
+            .trim(),
+        notes: Joi.string()
+            .max(1000)
+            .optional()
+            .allow(null, '')
+            .trim()
+    })
+};
+
+// Auto Customer Creation Schema (for jobs and estimations)
+export const autoCustomerSchema = {
+    create: Joi.object({
+        first_name: Joi.string()
+            .min(2)
+            .max(100)
+            .required()
+            .trim()
+            .messages({
+                'string.empty': 'First name is required',
+                'string.min': 'First name must be at least 2 characters long',
+                'string.max': 'First name cannot exceed 100 characters',
+                'any.required': 'First name is required'
+            }),
+        last_name: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, '')
+            .trim(),
+        mobile: Joi.string()
+            .pattern(/^(\+\d{7,15}|[6-9]\d{9})$/)
+            .required()
+            .messages({
+                'string.pattern.base': 'Invalid mobile number format',
+                'string.empty': 'Mobile number is required',
+                'any.required': 'Mobile number is required'
+            }),
+        email: Joi.string()
+            .email()
+            .optional()
+            .allow(null, '')
+            .messages({
+                'string.email': 'Please provide a valid email address'
+            }),
+        alternate_mobile: Joi.string()
+            .pattern(/^(\+\d{7,15}|[6-9]\d{9})$/)
+            .optional()
+            .allow(null, '')
+            .messages({
+                'string.pattern.base': 'Invalid alternate mobile number format'
+            }),
+        customer_type: Joi.string()
+            .valid('Individual', 'Business', 'Corporate')
+            .optional()
+            .default('Individual'),
+        company_name: Joi.string()
+            .max(255)
+            .optional()
+            .allow(null, '')
+            .trim(),
+        lead_source: Joi.string()
+            .max(100)
+            .optional()
+            .allow(null, '')
+            .trim()
     })
 };
 
@@ -1323,7 +1513,7 @@ export const jobSchema = {
                 'string.max': 'Special instructions cannot exceed 1000 characters'
             }),
         status: Joi.string()
-            .valid('Created', 'Assigned', 'In Progress', 'On Hold', 'Completed', 'Cancelled')
+            .valid('Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done')
             .optional()
     }).custom((value, helpers) => {
         // Custom validation: Either customer_id or customer details must be provided
@@ -1399,7 +1589,7 @@ export const jobSchema = {
             .optional()
             .allow(null, ''),
         status: Joi.string()
-            .valid('Created', 'Assigned', 'In Progress', 'On Hold', 'Completed', 'Cancelled')
+            .valid('Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done')
             .optional()
     })
 };
@@ -1500,7 +1690,7 @@ export const jobAssignmentSchema = {
             .positive()
             .required(),
         role_type: Joi.string()
-            .valid('Lead Technician', 'Technician', 'Helper', 'Supervisor', 'Sales Representative')
+            .max(50)
             .optional(),
         start_date: Joi.date()
             .optional()
@@ -1515,7 +1705,7 @@ export const jobAssignmentSchema = {
     }),
     update: Joi.object({
         assignment_status: Joi.string()
-            .valid('Assigned', 'Active', 'Completed', 'Cancelled')
+            .valid('Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done')
             .optional(),
         start_date: Joi.date()
             .optional()
@@ -1542,7 +1732,7 @@ export const jobStatusTrackingSchema = {
             .positive()
             .required(),
         new_status: Joi.string()
-            .valid('Created', 'Assigned', 'In Progress', 'On Hold', 'Completed', 'Cancelled')
+            .valid('Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done')
             .required(),
         status_reason: Joi.string()
             .max(255)
@@ -1560,31 +1750,67 @@ export const jobStatusTrackingSchema = {
     }),
     update: Joi.object({
         new_status: Joi.string()
-            .valid('Created', 'Assigned', 'In Progress', 'On Hold', 'Completed', 'Cancelled')
+            .valid('Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done')
             .required(),
-        status_reason: Joi.string()
-            .max(255)
-            .optional()
-            .allow(null, ''),
-        comments: Joi.string()
-            .max(1000)
-            .optional()
-            .allow(null, ''),
+        status_reason: Joi.any().optional(), // NO VALIDATION - accept any value
+        comments: Joi.any().optional(), // NO VALIDATION - accept any value
         attachment_url: Joi.string()
             .uri()
             .max(500)
             .optional()
             .allow(null, ''),
-        // Payment details required when status is "Completed"
+        // Multiple attachments support
+        attachments: Joi.array()
+            .items(Joi.object({
+                attachment_type: Joi.string()
+                    .valid('image', 'video', 'document', 'receipt')
+                    .required(),
+                file_name: Joi.string()
+                    .max(255)
+                    .required(),
+                // Accept either file_path (S3 pre-uploaded) or file (direct upload)
+                file_path: Joi.string()
+                    .max(500)
+                    .optional(),
+                file: Joi.any()
+                    .optional() // Accept file object from multer
+                    .messages({
+                        'any.invalid': 'Invalid file format'
+                    }),
+                file_size: Joi.number()
+                    .integer()
+                    .positive()
+                    .optional(),
+                mime_type: Joi.string()
+                    .max(100)
+                    .optional(),
+                s3_key: Joi.string()
+                    .max(500)
+                    .optional(),
+                s3_bucket: Joi.string()
+                    .max(100)
+                    .optional()
+            }).unknown(true)) // Allow other properties from multer
+            .optional()
+            .when('new_status', {
+                is: Joi.valid('Site Visit', 'Job Done'),
+                then: Joi.array().max(10).messages({
+                    'array.max': 'Maximum 10 attachments allowed'
+                }),
+                otherwise: Joi.array().max(5).messages({
+                    'array.max': 'Maximum 5 attachments allowed'
+                })
+            }),
+        // Enhanced payment details for payment-related statuses
         payment_details: Joi.when('new_status', {
-            is: 'Completed',
+            is: Joi.valid('Partial Payment Done', 'Payment Done', 'Invoice Generated'),
             then: Joi.object({
                 amount: Joi.number()
                     .positive()
                     .required()
                     .messages({
                         'number.positive': 'Amount must be a positive number',
-                        'any.required': 'Amount is required when completing a job'
+                        'any.required': 'Amount is required for payment status'
                     }),
                 discount_amount: Joi.number()
                     .min(0)
@@ -1608,38 +1834,138 @@ export const jobStatusTrackingSchema = {
                     .max(100)
                     .optional(),
                 payment_method: Joi.string()
-                    .valid('Cash', 'Bank Transfer', 'UPI', 'Card', 'Cheque', 'Online')
+                    .valid('UPI', 'Cash', 'Bank Transfer', 'Account Transfer', 'Cheque', 'Card', 'Online Banking', 'NEFT', 'RTGS', 'IMPS')
                     .required()
                     .messages({
-                        'any.required': 'Payment method is required when completing a job',
-                        'any.only': 'Payment method must be one of: Cash, Bank Transfer, UPI, Card, Cheque, Online'
+                        'any.required': 'Payment method is required for payment status',
+                        'any.only': 'Invalid payment method'
                     }),
-                payment_status: Joi.string()
-                    .valid('Pending', 'Completed')
-                    .required()
+                payment_date: Joi.date()
+                    .iso()
+                    .optional()
+                    .default(() => new Date()),
+                payment_time: Joi.string()
+                    .pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+                    .optional()
                     .messages({
-                        'any.required': 'Payment status is required when completing a job',
-                        'any.only': 'Payment status must be either Pending or Completed'
+                        'string.pattern.base': 'Payment time must be in HH:MM format'
                     }),
                 transaction_id: Joi.string()
                     .max(100)
-                    .required()
-                    .messages({
-                        'any.required': 'Transaction ID is required when completing a job',
-                        'string.max': 'Transaction ID cannot exceed 100 characters'
+                    .optional()
+                    .when('payment_method', {
+                        is: Joi.valid('UPI', 'Bank Transfer', 'Account Transfer', 'Online Banking', 'NEFT', 'RTGS', 'IMPS'),
+                        then: Joi.string().required().messages({
+                            'any.required': 'Transaction ID is required for electronic payments'
+                        }),
+                        otherwise: Joi.optional()
                     }),
                 payment_reference: Joi.string()
                     .max(100)
+                    .optional(),
+                bank_name: Joi.string()
+                    .max(100)
                     .optional()
-                    .allow(null, ''),
-                receipt_url: Joi.string()
-                    .uri()
+                    .when('payment_method', {
+                        is: Joi.valid('Bank Transfer', 'Account Transfer', 'NEFT', 'RTGS', 'Cheque'),
+                        then: Joi.string().messages({
+                            'string.empty': 'Bank name is helpful for bank transfers'
+                        }),
+                        otherwise: Joi.optional()
+                    }),
+                notes: Joi.string()
                     .max(500)
                     .optional()
-                    .allow(null, '')
+                    .allow(''),
+                receipt_attachments: Joi.array()
+                    .items(Joi.object({
+                        attachment_type: Joi.string()
+                            .valid('receipt', 'document')
+                            .required(),
+                        file_name: Joi.string()
+                            .max(255)
+                            .required(),
+                        file_path: Joi.string()
+                            .max(500)
+                            .required(),
+                        s3_key: Joi.string()
+                            .max(500)
+                            .optional(),
+                        s3_bucket: Joi.string()
+                            .max(100)
+                            .optional()
+                    }))
+                    .optional()
+                    .max(3)
+                    .messages({
+                        'array.max': 'Maximum 3 receipt attachments allowed'
+                    })
             }).required(),
             otherwise: Joi.forbidden()
         })
+    })
+};
+
+// Job Notes validation schema
+export const jobNotesSchema = {
+    create: Joi.object({
+        job_id: Joi.number()
+            .integer()
+            .positive()
+            .required()
+            .messages({
+                'number.base': 'Job ID must be a number',
+                'number.integer': 'Job ID must be an integer',
+                'number.positive': 'Job ID must be positive',
+                'any.required': 'Job ID is required'
+            }),
+        employee_id: Joi.number()
+            .integer()
+            .positive()
+            .required()
+            .messages({
+                'number.base': 'Employee ID must be a number',
+                'number.integer': 'Employee ID must be an integer',
+                'number.positive': 'Employee ID must be positive',
+                'any.required': 'Employee ID is required'
+            }),
+        note_content: Joi.any().optional() // NO VALIDATION - accept any value as notes
+    })
+};
+
+// Job Status Attachments validation schema
+export const jobStatusAttachmentSchema = {
+    create: Joi.object({
+        job_status_tracking_id: Joi.number()
+            .integer()
+            .positive()
+            .required(),
+        job_id: Joi.number()
+            .integer()
+            .positive()
+            .required(),
+        attachment_type: Joi.string()
+            .valid('image', 'video', 'document', 'receipt')
+            .required(),
+        file_name: Joi.string()
+            .max(255)
+            .required(),
+        file_path: Joi.string()
+            .max(500)
+            .required(),
+        file_size: Joi.number()
+            .integer()
+            .positive()
+            .optional(),
+        mime_type: Joi.string()
+            .max(100)
+            .optional(),
+        s3_key: Joi.string()
+            .max(500)
+            .optional(),
+        s3_bucket: Joi.string()
+            .max(100)
+            .optional()
     })
 };
 
@@ -1651,7 +1977,7 @@ export const jobPaymentSchema = {
             .positive()
             .required(),
         payment_type: Joi.string()
-            .valid('Advance', 'Milestone', 'Final', 'Refund')
+            .valid('Advance', 'Partial', 'Milestone', 'Final', 'Refund')
             .required(),
         amount: Joi.number()
             .positive()
@@ -1730,7 +2056,20 @@ export const jobPaymentSchema = {
             .uri()
             .max(500)
             .optional()
-            .allow(null, '')
+            .allow(null, ''),
+        payment_gateway_response: Joi.string()
+            .optional()
+            .allow(null, ''),
+        processed_by: Joi.number()
+            .integer()
+            .positive()
+            .optional()
+            .allow(null),
+        verified_by: Joi.number()
+            .integer()
+            .positive()
+            .optional()
+            .allow(null)
     }),
     createFinalPayment: Joi.object({
         amount: Joi.number()

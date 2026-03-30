@@ -3,6 +3,7 @@ import { countries } from "./utils/countries";
 import { indianStates } from "./utils/states";
 import { indianDistricts } from "./utils/districts";
 import * as countryQueries from "./queries/countryQueries";
+import { runStatusMigrations } from "./migrations";
 import * as stateQueries from "./queries/stateQueries";
 import * as districtQueries from "./queries/districtQueries";
 import { allFeatures, subFeaturesMap } from "./utils/common";
@@ -80,7 +81,7 @@ CREATE TABLE IF NOT EXISTS leads (
   email VARCHAR(100),
   service_type ENUM('Installation', 'Maintenance') NOT NULL,
   solar_service ENUM('Residential Solar', 'Commercial Solar', 'Industrial Solar') NOT NULL,
-  status ENUM('New','Assigned','In Progress','Closed','Rejected','Completed','Cancelled') NOT NULL DEFAULT 'New',
+  status ENUM('New', 'Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done') NOT NULL DEFAULT 'New',
   capacity VARCHAR(50),
   message TEXT,
   location VARCHAR(255) NOT NULL,
@@ -306,6 +307,53 @@ CREATE TABLE IF NOT EXISTS customer_locations (
     FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
 )`;
 
+const createCustomerServicesTable = `
+CREATE TABLE IF NOT EXISTS customer_services (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    service_type ENUM('Solar Installation', 'Solar Maintenance', 'Solar Consultation', 'System Upgrade', 'Battery Installation', 'Inverter Replacement', 'Panel Cleaning', 'System Repair', 'Energy Audit', 'Other') NOT NULL,
+    service_status ENUM('Inquiry', 'Quotation', 'In Progress', 'Completed', 'Cancelled', 'On Hold') DEFAULT 'Inquiry',
+    solar_service VARCHAR(100),
+    estimated_capacity VARCHAR(50),
+    estimated_cost DECIMAL(12, 2),
+    actual_cost DECIMAL(12, 2),
+    service_description TEXT,
+    inquiry_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completion_date TIMESTAMP NULL,
+    lead_id INT,
+    job_id INT,
+    estimation_id INT,
+    package_id INT,
+    priority ENUM('Low', 'Medium', 'High', 'Urgent') DEFAULT 'Medium',
+    source VARCHAR(100),
+    notes TEXT,
+    created_by INT NOT NULL,
+    updated_by INT,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_customer_service (customer_id, job_id),
+    UNIQUE KEY unique_customer_estimation (customer_id, estimation_id),
+    INDEX idx_customer_id (customer_id),
+    INDEX idx_service_type (service_type),
+    INDEX idx_service_status (service_status),
+    INDEX idx_lead_id (lead_id),
+    INDEX idx_job_id (job_id),
+    INDEX idx_estimation_id (estimation_id),
+    INDEX idx_package_id (package_id),
+    INDEX idx_inquiry_date (inquiry_date),
+    INDEX idx_completion_date (completion_date),
+    INDEX idx_created_by (created_by),
+    INDEX idx_updated_by (updated_by),
+    INDEX idx_status (status),
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL,
+    FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
+)`;
+
 const createPermissionsTable = `
 CREATE TABLE IF NOT EXISTS permissions (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -352,7 +400,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     completion_date DATE,
     job_description TEXT,
     special_instructions TEXT,
-    status ENUM('Created', 'Assigned', 'In Progress', 'On Hold', 'Completed', 'Cancelled') DEFAULT 'Created',
+    status ENUM('Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done') DEFAULT 'Active',
     created_by INT NOT NULL,
     updated_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -378,7 +426,7 @@ CREATE TABLE IF NOT EXISTS job_assignments (
     job_id INT NOT NULL,
     employee_id INT NOT NULL,
     role_type VARCHAR(50) NULL,
-    assignment_status ENUM('Assigned', 'Active', 'Completed', 'Cancelled') DEFAULT 'Assigned',
+    assignment_status ENUM('Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done') DEFAULT 'Active',
     start_date DATE,
     end_date DATE,
     work_hours DECIMAL(5,2),
@@ -418,11 +466,51 @@ CREATE TABLE IF NOT EXISTS job_status_tracking (
 )
 `;
 
+const createJobStatusAttachmentsTable = `
+CREATE TABLE IF NOT EXISTS job_status_attachments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    job_status_tracking_id INT NOT NULL,
+    job_id INT NOT NULL,
+    attachment_type ENUM('image', 'video', 'document', 'receipt') NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size INT,
+    mime_type VARCHAR(100),
+    s3_key VARCHAR(500),
+    s3_bucket VARCHAR(100),
+    uploaded_by INT NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_job_status_tracking_id (job_status_tracking_id),
+    INDEX idx_job_id (job_id),
+    INDEX idx_attachment_type (attachment_type),
+    INDEX idx_uploaded_at (uploaded_at),
+    FOREIGN KEY (job_status_tracking_id) REFERENCES job_status_tracking(id) ON DELETE CASCADE,
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES employees(id) ON DELETE CASCADE
+)
+`;
+
+const createJobNotesTable = `
+CREATE TABLE IF NOT EXISTS job_notes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    job_id INT NOT NULL,
+    note_content TEXT NOT NULL,
+    created_by INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_job_id (job_id),
+    INDEX idx_created_by (created_by),
+    INDEX idx_created_at (created_at),
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES employees(id) ON DELETE CASCADE
+)
+`;
+
 const createJobPaymentsTable = `
 CREATE TABLE IF NOT EXISTS job_payments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     job_id INT NOT NULL,
-    payment_type ENUM('Advance', 'Milestone', 'Final', 'Refund') NOT NULL,
+    payment_type ENUM('Advance', 'Partial', 'Milestone', 'Final', 'Refund') NOT NULL,
     amount DECIMAL(12,2) NOT NULL,
     discount_amount DECIMAL(12,2) DEFAULT 0,
     taxable_amount DECIMAL(12,2) NOT NULL,
@@ -495,36 +583,90 @@ CREATE TABLE IF NOT EXISTS job_locations (
 )
 `;
 
+const createJobMonitoringTable = `
+CREATE TABLE IF NOT EXISTS job_monitoring_permissions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    job_id INT NOT NULL,
+
+    employee_id INT NOT NULL,
+    permission_type ENUM('monitor', 'view_only', 'full_access') DEFAULT 'monitor',
+    granted_by INT NOT NULL,
+    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('Active', 'Revoked') DEFAULT 'Active',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_job_employee (job_id, employee_id),
+    INDEX idx_job_id (job_id),
+    INDEX idx_employee_id (employee_id),
+    INDEX idx_permission_type (permission_type),
+    INDEX idx_status (status), 
+    INDEX idx_granted_by (granted_by),
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (granted_by) REFERENCES employees(id) ON DELETE CASCADE
+)
+`;
+
 const createEstimationsTable = `
 CREATE TABLE IF NOT EXISTS estimations (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    customer_name VARCHAR(200) NOT NULL,
+    customer_id INT NULL,
+    job_id INT NULL,
+    lead_id INT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    mobile VARCHAR(15) NOT NULL,
+    email VARCHAR(255),
+    customer_name VARCHAR(200),
     door_no VARCHAR(50) NOT NULL,
     area VARCHAR(100) NOT NULL,
     city VARCHAR(100) NOT NULL,
     district VARCHAR(100) NOT NULL,
     state VARCHAR(100) NOT NULL,
     pincode VARCHAR(10) NOT NULL,
-    mobile VARCHAR(15) NOT NULL,
+    solar_service ENUM('Commercial', 'Residential', 'Industrial') DEFAULT 'Residential',
+    service_type ENUM('Installation', 'Maintenance', 'Repair', 'Battery Replacement', 'Inverter Replacement', 'Panel Cleaning', 'System Upgrade', 'Energy Audit', 'Consultation', 'Other') DEFAULT 'Installation',
+    inverter_capacity VARCHAR(100),
     structure VARCHAR(100),
     product_description TEXT,
     requested_watts TEXT,
     gst DECIMAL(5,2) DEFAULT 18.00,
     amount DECIMAL(12,2) NOT NULL,
+    final_amount DECIMAL(12,2),
+    approval_status ENUM('Draft', 'Pending_Approval', 'Approved', 'Rejected') DEFAULT 'Draft',
+    approval_notes TEXT,
+    approved_by INT,
+    approval_date TIMESTAMP NULL,
+    rejection_reason TEXT,
     created_by INT,
     updated_by INT,
-    status ENUM('Active','Inactive') DEFAULT 'Active',
+    status ENUM('Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done') DEFAULT 'Active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_customer_id (customer_id),
+    INDEX idx_job_id (job_id),
+    INDEX idx_lead_id (lead_id),
+    INDEX idx_first_name (first_name),
+    INDEX idx_last_name (last_name),
     INDEX idx_customer_name (customer_name),
     INDEX idx_mobile (mobile),
+    INDEX idx_email (email),
+    INDEX idx_solar_service (solar_service),
     INDEX idx_district (district),
     INDEX idx_state (state),
     INDEX idx_pincode (pincode),
+    INDEX idx_approval_status (approval_status),
+    INDEX idx_service_type (service_type),
+    INDEX idx_approved_by (approved_by),
     INDEX idx_status (status),
     INDEX idx_created_by (created_by),
     INDEX idx_updated_by (updated_by),
-    INDEX idx_created_at (created_at)
+    INDEX idx_created_at (created_at),
+    FOREIGN KEY (approved_by) REFERENCES employees(id) ON DELETE SET NULL,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL,
+    FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL
 )
 `;
 
@@ -1228,22 +1370,6 @@ const migrateContactsTable = async () => {
   }
 };
 
-const migrateEstimationsTable = async () => {
-  try {
-    // Add structure column to estimations table
-    await db.execute(`ALTER TABLE estimations ADD COLUMN structure VARCHAR(100) AFTER mobile`);
-    console.log("Successfully migrated estimations table - added structure column");
-  } catch (error: any) {
-    if (error.code === 'ER_DUP_FIELDNAME') {
-      console.log("Structure column already exists in estimations table");
-    } else if (error.code === 'ER_NO_SUCH_TABLE') {
-      console.log("estimations table doesn't exist yet, will be created with correct schema");
-    } else {
-      console.log("Migration for estimations table:", error.message);
-    }
-  }
-};
-
 export const initializeDatabase = async () => {
   try {
     // Create tables
@@ -1262,11 +1388,15 @@ export const initializeDatabase = async () => {
     await db.execute(createDistrictsTable);
     await db.execute(createCustomersTable);
     await db.execute(createCustomerLocationsTable);
+    await db.execute(createCustomerServicesTable);
     await db.execute(createPermissionsTable);
     await db.execute(createJobsTable);
     await db.execute(createJobAssignmentsTable);
     await db.execute(createJobStatusTrackingTable);
+    await db.execute(createJobStatusAttachmentsTable);
+    await db.execute(createJobNotesTable);
     await db.execute(createJobPaymentsTable);
+    await db.execute(createJobMonitoringTable);
     await db.execute(createJobLocationsTable);
     await db.execute(createEstimationsTable);
     await db.execute(createInvoicesTable);
@@ -1276,12 +1406,14 @@ export const initializeDatabase = async () => {
     await db.execute(createStructuresTable);
     await db.execute(createBankDetailsTable);
 
-    // Run migrations for existing tables
+    // Run other table structure migrations
     await migrateJobAssignmentsTable();
     await migrateJobPaymentsTable();
     await migrateRolesTable();
     await migrateContactsTable();
-    await migrateEstimationsTable();
+    
+    // Run all status enum migrations
+    await runStatusMigrations();
 
     // Insert default roles if they don't exist
     await insertDefaultRoles();

@@ -308,7 +308,7 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
         const leadId = parseInt(req.params.id);
         let { status } = req.body;
 
-        const validStatuses = ['New', 'Assigned', 'In Progress', 'Closed', 'Rejected', 'Complete', 'Completed', 'Cancelled'];
+        const validStatuses = ['Active', 'Site Visit', 'Estimation Generated', 'Processed', 'Pending on Portal', 'Payment Pending', 'Partial Payment Done', 'Payment Done', 'Invoice Generated', 'Job Done'];
         
         // Normalize status: handle case-insensitive and common variations
         if (status && typeof status === 'string') {
@@ -316,11 +316,6 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
             
             // Find matching status (case-insensitive)
             let matchedStatus = validStatuses.find(s => s.toLowerCase() === lowerStatus);
-            
-            // Handle "Completed" -> "Complete" conversion
-            if (matchedStatus === 'Completed') {
-                matchedStatus = 'Complete';
-            }
             
             if (matchedStatus) {
                 status = matchedStatus;
@@ -350,7 +345,7 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
     }
 };
 
-// Assign lead to employee (sets assigned_to and status = 'Assigned')
+// Assign lead to employee (sets assigned_to and status = 'Active')
 export const assignLead = async (req: Request, res: Response) => {
     try {
         const leadId = parseInt(req.params.id);

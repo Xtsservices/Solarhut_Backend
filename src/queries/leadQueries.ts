@@ -13,7 +13,7 @@ export interface Lead extends RowDataPacket {
     email?: string;
     service_type: 'Installation' | 'Maintenance';
     solar_service: 'Residential Solar' | 'Commercial Solar' | 'Industrial Solar';
-    status: 'New' | 'Assigned' | 'In Progress' | 'Closed' | 'Rejected' | 'Complete' | 'Cancelled';
+    status: 'New' | 'Active' | 'Site Visit' | 'Estimation Generated' | 'Processed' | 'Pending on Portal' | 'Payment Pending' | 'Partial Payment Done' | 'Payment Done' | 'Invoice Generated' | 'Job Done';
     capacity: string;
     message: string;
     location: string;
@@ -25,6 +25,9 @@ export interface Lead extends RowDataPacket {
     channel: string;
     created_at: Date;
     updated_at: Date;
+    job_id?: number | null;
+    job_status?: string | null;
+    display_status?: string;
 }
 
 export const createLead = async (leadData: Omit<Lead, 'id' | 'created_at' | 'updated_at' | 'channel'>) => {
@@ -64,15 +67,25 @@ export const createLead = async (leadData: Omit<Lead, 'id' | 'created_at' | 'upd
 export const getLeadById = async (id: number) => {
     const [leads] = await db.execute<Lead[]>(
         `SELECT l.*, 
+                j.id as job_id,
+                j.status as job_status,
                 CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
                 e.email as assigned_to_email,
                 e.mobile as assigned_to_mobile
          FROM leads l
+         LEFT JOIN jobs j ON l.id = j.lead_id
          LEFT JOIN employees e ON l.assigned_to = e.id
          WHERE l.id = ?`,
         [id]
     );
-    return leads[0];
+    
+    if (!leads[0]) return null;
+    
+    const lead = leads[0];
+    // Set display_status: show job_status if job exists, otherwise show lead's own status
+    lead.display_status = lead.job_status || lead.status;
+    
+    return lead;
 };
 
 export const updateLeadStatus = async (id: number, status: Lead['status']) => {
@@ -86,7 +99,7 @@ export const updateLeadStatus = async (id: number, status: Lead['status']) => {
 export const assignLeadToEmployee = async (id: number, employeeId: number) => {
     const [result] = await db.execute(
         'UPDATE leads SET assigned_to = ?, status = ? WHERE id = ?',
-        [employeeId, 'Assigned', id]
+        [employeeId, 'Active', id]
     );
     return (result as any).affectedRows > 0;
 };
@@ -94,74 +107,114 @@ export const assignLeadToEmployee = async (id: number, employeeId: number) => {
 export const getAllLeads = async () => {
     const [leads] = await db.execute<Lead[]>(
         `SELECT l.*, 
+                j.id as job_id,
+                j.status as job_status,
                 CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
                 e.email as assigned_to_email,
                 e.mobile as assigned_to_mobile
          FROM leads l
+         LEFT JOIN jobs j ON l.id = j.lead_id
          LEFT JOIN employees e ON l.assigned_to = e.id
          ORDER BY l.created_at DESC`
     );
-    return leads;
+    
+    // Add display_status for each lead
+    return leads.map(lead => ({
+        ...lead,
+        display_status: lead.job_status || lead.status
+    }));
 };
 
 export const getLeadsByDateRange = async (startDate: Date, endDate: Date) => {
     const [leads] = await db.execute<Lead[]>(
         `SELECT l.*, 
+                j.id as job_id,
+                j.status as job_status,
                 CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
                 e.email as assigned_to_email,
                 e.mobile as assigned_to_mobile
          FROM leads l
+         LEFT JOIN jobs j ON l.id = j.lead_id
          LEFT JOIN employees e ON l.assigned_to = e.id
          WHERE l.created_at BETWEEN ? AND ? 
          ORDER BY l.created_at DESC`,
         [startDate, endDate]
     );
-    return leads;
+    
+    // Add display_status for each lead
+    return leads.map(lead => ({
+        ...lead,
+        display_status: lead.job_status || lead.status
+    }));
 };
 
 export const getLeadsByServiceType = async (serviceType: Lead['service_type']) => {
     const [leads] = await db.execute<Lead[]>(
         `SELECT l.*, 
+                j.id as job_id,
+                j.status as job_status,
                 CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
                 e.email as assigned_to_email,
                 e.mobile as assigned_to_mobile
          FROM leads l
+         LEFT JOIN jobs j ON l.id = j.lead_id
          LEFT JOIN employees e ON l.assigned_to = e.id
          WHERE l.service_type = ? 
          ORDER BY l.created_at DESC`,
         [serviceType]
     );
-    return leads;
+    
+    // Add display_status for each lead
+    return leads.map(lead => ({
+        ...lead,
+        display_status: lead.job_status || lead.status
+    }));
 };
 
 export const getLeadsByPropertyType = async (propertyType: Lead['property_type']) => {
     const [leads] = await db.execute<Lead[]>(
         `SELECT l.*, 
+                j.id as job_id,
+                j.status as job_status,
                 CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
                 e.email as assigned_to_email,
                 e.mobile as assigned_to_mobile
          FROM leads l
+         LEFT JOIN jobs j ON l.id = j.lead_id
          LEFT JOIN employees e ON l.assigned_to = e.id
          WHERE l.property_type = ? 
          ORDER BY l.created_at DESC`,
         [propertyType]
     );
-    return leads;
+    
+    // Add display_status for each lead
+    return leads.map(lead => ({
+        ...lead,
+        display_status: lead.job_status || lead.status
+    }));
 };
 
 export const getLeadsBySolarService = async (solarService: Lead['solar_service']) => {
     const [leads] = await db.execute<Lead[]>(
         `SELECT l.*, 
+                j.id as job_id,
+                j.status as job_status,
                 CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
                 e.email as assigned_to_email,
                 e.mobile as assigned_to_mobile
          FROM leads l
+         LEFT JOIN jobs j ON l.id = j.lead_id
          LEFT JOIN employees e ON l.assigned_to = e.id
          WHERE l.solar_service = ? 
          ORDER BY l.created_at DESC`,
         [solarService]
     );
-    return leads;
+    
+    // Add display_status for each lead
+    return leads.map(lead => ({
+        ...lead,
+        display_status: lead.job_status || lead.status
+    }));
 };
 
 export const getLeadStats = async () => {
@@ -177,4 +230,40 @@ export const getLeadStats = async () => {
         FROM leads
     `);
     return results[0];
+};
+
+// Sync lead status when job status is updated
+// The displayed status to users will be the job_status via the display_status field
+export const syncLeadStatusWithJobStatus = async (leadId: number, jobStatus: string) => {
+    // Update lead status to match the job status
+    const [result] = await db.execute(
+        'UPDATE leads SET status = ? WHERE id = ?',
+        [jobStatus, leadId]
+    );
+    return (result as any).affectedRows > 0;
+};
+
+// Get lead with its current job status for display
+export const getLeadWithJobStatus = async (id: number) => {
+    const [leads] = await db.execute<Lead[]>(
+        `SELECT l.*, 
+                j.id as job_id,
+                j.status as job_status,
+                CONCAT(e.first_name, ' ', e.last_name) as assigned_to_name,
+                e.email as assigned_to_email,
+                e.mobile as assigned_to_mobile
+         FROM leads l
+         LEFT JOIN jobs j ON l.id = j.lead_id
+         LEFT JOIN employees e ON l.assigned_to = e.id
+         WHERE l.id = ?`,
+        [id]
+    );
+    
+    if (!leads[0]) return null;
+    
+    const lead = leads[0];
+    // Set display_status: show job_status if job exists, otherwise show lead's own status
+    lead.display_status = lead.job_status || lead.status;
+    
+    return lead;
 };

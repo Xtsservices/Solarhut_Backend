@@ -23,31 +23,42 @@ export const createJob = async (
     connection?: PoolConnection
 ) => {
     const conn = connection || db;
+    
+    const finalStatus = jobData.status || 'Active';  // Use valid enum value from database
+    
+    // Build the parameters array
+    const params = [
+        jobData.job_code, 
+        jobData.lead_id || null, 
+        jobData.customer_id, 
+        jobData.location_id || null,
+        jobData.service_type, 
+        jobData.solar_service, 
+        jobData.package_id || null, 
+        jobData.capacity || null, 
+        jobData.estimated_cost || null, 
+        jobData.job_priority || 'Medium', 
+        jobData.scheduled_date || null, 
+        jobData.job_description || null, 
+        jobData.special_instructions || null, 
+        finalStatus,
+        created_by
+    ];
+    
     const [result] = await conn.execute(
         `INSERT INTO jobs (
             job_code, lead_id, customer_id, location_id, service_type, solar_service, package_id, 
             capacity, estimated_cost, job_priority, scheduled_date, job_description, 
             special_instructions, status, created_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-            jobData.job_code, 
-            jobData.lead_id || null, 
-            jobData.customer_id, 
-            jobData.location_id || null,
-            jobData.service_type, 
-            jobData.solar_service, 
-            jobData.package_id || null, 
-            jobData.capacity || null, 
-            jobData.estimated_cost || null, 
-            jobData.job_priority || 'Medium', 
-            jobData.scheduled_date || null, 
-            jobData.job_description || null, 
-            jobData.special_instructions || null, 
-            jobData.status || 'Created', 
-            created_by
-        ]
+        params
     );
-    return (result as any).insertId;
+    
+    const jobId = (result as any).insertId;
+    
+    // Fetch and return the complete job object with all related data
+    const createdJob = await getJobById(jobId, connection);
+    return createdJob;
 };
 
 export const getJobById = async (id: number, connection?: PoolConnection) => {
@@ -310,6 +321,7 @@ export const createJobAssignment = async (
         job_id: number;
         employee_id: number;
         role_type?: string;
+        assignment_status?: 'Active' | 'Site Visit' | 'Estimation Generated' | 'Processed' | 'Pending on Portal' | 'Payment Pending' | 'Partial Payment Done' | 'Payment Done' | 'Invoice Generated' | 'Job Done';
         start_date?: string;
         end_date?: string;
         notes?: string;
@@ -318,15 +330,19 @@ export const createJobAssignment = async (
     connection?: PoolConnection
 ) => {
     const conn = connection || db;
+    // Auto-set start_date to today if not provided
+    const startDate = assignmentData.start_date || new Date().toISOString().split('T')[0];
+    
     const [result] = await conn.execute(
         `INSERT INTO job_assignments (
-            job_id, employee_id, role_type, start_date, end_date, notes, assigned_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            job_id, employee_id, role_type, assignment_status, start_date, end_date, notes, assigned_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             assignmentData.job_id, 
             assignmentData.employee_id, 
             assignmentData.role_type || null,
-            assignmentData.start_date || null, 
+            assignmentData.assignment_status || 'Active',
+            startDate, 
             assignmentData.end_date || null, 
             assignmentData.notes || null,
             assigned_by
@@ -444,6 +460,9 @@ export const createJobPayment = async (
         due_date?: string;
         milestone_description?: string;
         receipt_url?: string;
+        payment_gateway_response?: string;
+        processed_by?: number;
+        verified_by?: number;
     },
     created_by: number,
     connection?: PoolConnection
@@ -455,8 +474,9 @@ export const createJobPayment = async (
             gst_rate, cgst_rate, sgst_rate, igst_rate,
             cgst_amount, sgst_amount, igst_amount, total_tax_amount, total_amount,
             payment_method, payment_status, transaction_id, payment_reference, 
-            payment_date, due_date, milestone_description, receipt_url, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            payment_date, due_date, milestone_description, receipt_url,
+            payment_gateway_response, processed_by, verified_by, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             paymentData.job_id, 
             paymentData.payment_type, 
@@ -467,7 +487,7 @@ export const createJobPayment = async (
             paymentData.cgst_rate || 0,
             paymentData.sgst_rate || 0,
             paymentData.igst_rate || 0,
-            paymentData.cgst_amount || 0,
+            paymentData.cgst_amount || 0,   
             paymentData.sgst_amount || 0,
             paymentData.igst_amount || 0,
             paymentData.total_tax_amount || 0,
@@ -479,7 +499,10 @@ export const createJobPayment = async (
             paymentData.payment_date || null, 
             paymentData.due_date || null, 
             paymentData.milestone_description || null,
-            paymentData.receipt_url || null, 
+            paymentData.receipt_url || null,
+            paymentData.payment_gateway_response || null,
+            paymentData.processed_by || null,
+            paymentData.verified_by || null, 
             created_by
         ]
     );
@@ -613,6 +636,190 @@ export const generateJobCode = async (connection?: PoolConnection) => {
     return `JOB${year}${month}${sequence}`;
 };
 
+// Job Monitoring Permission Queries
+export const createJobMonitoring = async (
+    data: {
+        job_id: number,
+        employee_id: number,
+        permission_type: 'monitor' | 'view_only' | 'full_access',
+        notes?: string,
+        granted_by: number
+    },
+    connection?: PoolConnection
+) => {
+    const conn = connection || db;
+    
+    const query = `
+        INSERT INTO job_monitoring_permissions (
+            job_id, employee_id, permission_type, notes, granted_by
+        ) VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE 
+            permission_type = VALUES(permission_type),
+            notes = VALUES(notes),
+            granted_by = VALUES(granted_by),
+            status = 'Active',
+            updated_at = CURRENT_TIMESTAMP
+    `;
+    
+    const [result] = await conn.execute(query, [
+        data.job_id,
+        data.employee_id,
+        data.permission_type,
+        data.notes || null,
+        data.granted_by
+    ]);
+    
+    return (result as any).insertId;
+};
+
+export const hasJobMonitoringAccess = async (job_id: number, employee_id: number, connection?: PoolConnection): Promise<boolean> => {
+    const conn = connection || db;
+    
+    const query = `
+        SELECT COUNT(*) as count 
+        FROM job_monitoring_permissions 
+        WHERE job_id = ? AND employee_id = ? AND status = 'Active'
+    `;
+    
+    const [result] = await conn.execute(query, [job_id, employee_id]);
+    return (result as any[])[0].count > 0;
+};
+
+export const revokeJobMonitoring = async (job_id: number, employee_id: number, connection?: PoolConnection) => {
+    const conn = connection || db;
+    
+    const query = `
+        UPDATE job_monitoring_permissions 
+        SET status = 'Revoked', updated_at = CURRENT_TIMESTAMP
+        WHERE job_id = ? AND employee_id = ?
+    `;
+    
+    const [result] = await conn.execute(query, [job_id, employee_id]);
+    return (result as any).affectedRows;
+};
+
+export const getJobMonitoringPermissions = async (job_id: number, connection?: PoolConnection) => {
+    const conn = connection || db;
+    
+    const query = `
+        SELECT 
+            jmp.*,
+            e.first_name, e.last_name, e.email,
+            gb.first_name as granted_by_first_name, gb.last_name as granted_by_last_name
+        FROM job_monitoring_permissions jmp
+        LEFT JOIN employees e ON jmp.employee_id = e.id
+        LEFT JOIN employees gb ON jmp.granted_by = gb.id
+        WHERE jmp.job_id = ? AND jmp.status = 'Active'
+        ORDER BY jmp.granted_at DESC
+    `;
+    
+    const [result] = await conn.execute(query, [job_id]);
+    return result as any[];
+};
+
+// Job Notes Operations
+export const createJobNote = async (
+    noteData: {
+        job_id: number;
+        employee_id: number;
+        note_content: string;
+    },
+    connection?: PoolConnection
+) => {
+    const conn = connection || db;
+    const [result] = await conn.execute(
+        `INSERT INTO job_notes (job_id, note_content, created_by) VALUES (?, ?, ?)`,
+        [noteData.job_id, noteData.note_content, noteData.employee_id]
+    );
+    return (result as any).insertId;
+};
+
+export const getJobNotesByJobId = async (job_id: number, connection?: PoolConnection) => {
+    const conn = connection || db;
+    const [rows] = await conn.execute(
+        `SELECT jn.*, 
+                jn.created_by as employee_id,
+                e.first_name, e.last_name,
+                CONCAT(e.first_name, ' ', e.last_name) as employee_name
+         FROM job_notes jn
+         LEFT JOIN employees e ON jn.created_by = e.id
+         WHERE jn.job_id = ?
+         ORDER BY jn.created_at DESC`,
+        [job_id]
+    );
+    return rows as any[];
+};
+
+// Job Status Attachments Operations
+export const createJobStatusAttachment = async (
+    attachmentData: {
+        job_status_tracking_id: number;
+        job_id: number;
+        attachment_type: 'image' | 'video' | 'document' | 'receipt';
+        file_name: string;
+        file_path: string;
+        file_size?: number;
+        mime_type?: string;
+        s3_key?: string;
+        s3_bucket?: string;
+    },
+    uploaded_by: number,
+    connection?: PoolConnection
+) => {
+    const conn = connection || db;
+    const [result] = await conn.execute(
+        `INSERT INTO job_status_attachments (
+            job_status_tracking_id, job_id, attachment_type, file_name, file_path,
+            file_size, mime_type, s3_key, s3_bucket, uploaded_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            attachmentData.job_status_tracking_id,
+            attachmentData.job_id,
+            attachmentData.attachment_type,
+            attachmentData.file_name,
+            attachmentData.file_path,
+            attachmentData.file_size || null,
+            attachmentData.mime_type || null,
+            attachmentData.s3_key || null,
+            attachmentData.s3_bucket || null,
+            uploaded_by
+        ]
+    );
+    return (result as any).insertId;
+};
+
+export const getJobStatusAttachmentsByStatusId = async (job_status_tracking_id: number, connection?: PoolConnection) => {
+    const conn = connection || db;
+    const [rows] = await conn.execute(
+        `SELECT jsa.*, 
+                e.first_name as uploaded_by_name, e.last_name as uploaded_by_lastname,
+                CONCAT(e.first_name, ' ', e.last_name) as uploader_name
+         FROM job_status_attachments jsa
+         LEFT JOIN employees e ON jsa.uploaded_by = e.id
+         WHERE jsa.job_status_tracking_id = ?
+         ORDER BY jsa.uploaded_at DESC`,
+        [job_status_tracking_id]
+    );
+    return rows as any[];
+};
+
+export const getJobStatusAttachmentsByJobId = async (job_id: number, connection?: PoolConnection) => {
+    const conn = connection || db;
+    const [rows] = await conn.execute(
+        `SELECT jsa.*, 
+                jst.new_status,
+                e.first_name as uploaded_by_name, e.last_name as uploaded_by_lastname,
+                CONCAT(e.first_name, ' ', e.last_name) as uploader_name
+         FROM job_status_attachments jsa
+         LEFT JOIN job_status_tracking jst ON jsa.job_status_tracking_id = jst.id
+         LEFT JOIN employees e ON jsa.uploaded_by = e.id
+         WHERE jsa.job_id = ?
+         ORDER BY jsa.uploaded_at DESC`,
+        [job_id]
+    );
+    return rows as any[];
+};
+
 export default {
     createJob,
     getJobById,
@@ -631,5 +838,14 @@ export default {
     getJobPaymentsByJobId,
     updateJobPayment,
     searchJobs,
-    getJobsByEmployee
+    getJobsByEmployee,
+    createJobMonitoring,
+    hasJobMonitoringAccess,
+    revokeJobMonitoring,
+    getJobMonitoringPermissions,
+    createJobNote,
+    getJobNotesByJobId,
+    createJobStatusAttachment,
+    getJobStatusAttachmentsByStatusId,
+    getJobStatusAttachmentsByJobId
 };

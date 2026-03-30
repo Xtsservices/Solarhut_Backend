@@ -102,8 +102,30 @@ export const createCustomer = async (req: Request, res: Response) => {
 
 export const getCustomer = async (req: Request, res: Response) => {
     try {
+        const user = (res.locals as any).user;
+        if (!user || !user.id) {
+            return res.status(401).json({ success: false, message: 'User information not found' });
+        }
+
         const id = parseInt(req.params.id);
         if (!id) return res.status(400).json({ success: false, message: 'Invalid customer id' });
+
+        // Role-based access control
+        const userRoles = user.roles || [];
+        const isSuperAdmin = userRoles.includes('SuperAdmin');
+        const isAdmin = userRoles.includes('Admin');
+        
+        // Check access for non-SuperAdmin/Admin users
+        if (!isSuperAdmin && !isAdmin) {
+            const hasAccess = await customerQueries.hasCustomerAccess(user.id, id);
+            if (!hasAccess) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Access denied. You can only view customers for jobs assigned to you.',
+                    error_code: 'CUSTOMER_ACCESS_DENIED'
+                });
+            }
+        }
 
         const customer = await customerQueries.getCustomerById(id);
         if (!customer) {
@@ -123,13 +145,44 @@ export const getCustomer = async (req: Request, res: Response) => {
 
 export const listCustomers = async (req: Request, res: Response) => {
     try {
+        const user = (res.locals as any).user;
+        if (!user || !user.id) {
+            return res.status(401).json({ success: false, message: 'User information not found' });
+        }
+
         const onlyActive = req.query.active !== 'false';
-        const customers = await customerQueries.getAllCustomers(onlyActive);
+        
+        // Role-based access control
+        const userRoles = user.roles || [];
+        const isSuperAdmin = userRoles.includes('SuperAdmin');
+        const isAdmin = userRoles.includes('Admin');
+        
+        let customers;
+        let accessInfo;
+        
+        if (isSuperAdmin || isAdmin) {
+            // SuperAdmin and Admin can see all customers
+            customers = await customerQueries.getAllCustomers(onlyActive);
+            accessInfo = {
+                role: isSuperAdmin ? 'SuperAdmin' : 'Admin',
+                access_level: 'all_customers'
+            };
+        } else {
+            // Other roles can only see customers for jobs they are assigned to
+            customers = await customerQueries.getCustomersByEmployeeAssignments(user.id, onlyActive);
+            accessInfo = {
+                role: 'Employee',
+                access_level: 'assigned_jobs_only',
+                employee_id: user.id
+            };
+        }
         
         res.json({ 
             success: true, 
             data: customers,
-            filter: onlyActive ? 'active_only' : 'all_customers'
+            total: customers.length,
+            filter: onlyActive ? 'active_only' : 'all_customers',
+            access_info: accessInfo
         });
     } catch (err) {
         console.error('Error listing customers:', err);
@@ -170,6 +223,15 @@ export const updateCustomer = async (req: Request, res: Response) => {
             const existingCustomer = await customerQueries.getCustomerById(id, connection);
             if (!existingCustomer) {
                 throw new Error('Customer not found');
+            }
+
+            // Role-based access control
+            if (!user.roles?.includes('SuperAdmin') && !user.roles?.includes('Admin')) {
+                // Employee: check if they have access to this customer
+                const hasAccess = await customerQueries.hasCustomerAccess(user.id, id, connection);
+                if (!hasAccess) {
+                    throw new Error('Access denied: You are not authorized to update this customer');
+                }
             }
 
             // Check for mobile conflicts (if mobile is being updated)
@@ -258,6 +320,15 @@ export const deactivateCustomer = async (req: Request, res: Response) => {
                 throw new Error('Customer not found');
             }
 
+            // Role-based access control
+            if (!user.roles?.includes('SuperAdmin') && !user.roles?.includes('Admin')) {
+                // Employee: check if they have access to this customer
+                const hasAccess = await customerQueries.hasCustomerAccess(user.id, id, connection);
+                if (!hasAccess) {
+                    throw new Error('Access denied: You are not authorized to deactivate this customer');
+                }
+            }
+
             // Check if customer is already inactive
             if (existingCustomer.status === 'Inactive') {
                 throw new Error('Customer is already inactive');
@@ -332,7 +403,14 @@ export const activateCustomer = async (req: Request, res: Response) => {
             if (!existingCustomer) {
                 throw new Error('Customer not found');
             }
-
+            // Role-based access control
+            if (!user.roles?.includes('SuperAdmin') && !user.roles?.includes('Admin')) {
+                // Employee: check if they have access to this customer
+                const hasAccess = await customerQueries.hasCustomerAccess(user.id, id, connection);
+                if (!hasAccess) {
+                    throw new Error('Access denied: You are not authorized to deactivate this customer');
+                }
+            }
             // Check if customer is already active
             if (existingCustomer.status === 'Active') {
                 throw new Error('Customer is already active');
@@ -388,6 +466,11 @@ export const activateCustomer = async (req: Request, res: Response) => {
 
 export const searchCustomers = async (req: Request, res: Response) => {
     try {
+        const user = (res.locals as any).user;
+        if (!user || !user.id) {
+            return res.status(401).json({ success: false, message: 'User information not found' });
+        }
+
         const searchTerm = req.query.search as string;
         if (!searchTerm) {
             return res.status(400).json({ success: false, message: 'Search term is required' });
@@ -400,7 +483,15 @@ export const searchCustomers = async (req: Request, res: Response) => {
             district_id: req.query.district_id ? parseInt(req.query.district_id as string) : undefined
         };
 
-        const customers = await customerQueries.searchCustomers(searchTerm, filters);
+        let customers;
+        
+        // Role-based access control
+        if (user.roles?.includes('SuperAdmin') || user.roles?.includes('Admin')) {
+            customers = await customerQueries.searchCustomers(searchTerm, filters);
+        } else {
+            // Employee: only see customers for jobs assigned to them
+            customers = await customerQueries.searchCustomersForEmployee(user.id, searchTerm, filters);
+        }
         
         res.json({ 
             success: true, 
@@ -420,10 +511,23 @@ export const searchCustomers = async (req: Request, res: Response) => {
 
 export const getCustomersByLocation = async (req: Request, res: Response) => {
     try {
+        const user = (res.locals as any).user;
+        if (!user || !user.id) {
+            return res.status(401).json({ success: false, message: 'User information not found' });
+        }
+
         const state_id = req.query.state_id ? parseInt(req.query.state_id as string) : undefined;
         const district_id = req.query.district_id ? parseInt(req.query.district_id as string) : undefined;
 
-        const customers = await customerQueries.getCustomersByLocation(state_id, district_id);
+        let customers;
+        
+        // Role-based access control
+        if (user.roles?.includes('SuperAdmin') || user.roles?.includes('Admin')) {
+            customers = await customerQueries.getCustomersByLocation(state_id, district_id);
+        } else {
+            // Employee: only see customers for jobs assigned to them
+            customers = await customerQueries.getCustomersByLocationForEmployee(user.id, state_id, district_id);
+        }
         
         res.json({ 
             success: true, 
@@ -498,6 +602,11 @@ export const createCustomerLocation = async (req: Request, res: Response) => {
 
 export const getCustomerLocations = async (req: Request, res: Response) => {
     try {
+        const user = (res.locals as any).user;
+        if (!user || !user.id) {
+            return res.status(401).json({ success: false, message: 'User information not found' });
+        }
+
         const customerId = parseInt(req.params.customerId);
         
         if (isNaN(customerId)) {
@@ -505,6 +614,18 @@ export const getCustomerLocations = async (req: Request, res: Response) => {
                 success: false, 
                 message: 'Invalid customer ID' 
             });
+        }
+
+        // Role-based access control
+        if (!user.roles?.includes('SuperAdmin') && !user.roles?.includes('Admin')) {
+            // Employee: check if they have access to this customer
+            const hasAccess = await customerQueries.hasCustomerAccess(user.id, customerId);
+            if (!hasAccess) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Access denied: You are not authorized to view this customer\'s locations' 
+                });
+            }
         }
 
         const locations = await customerQueries.getCustomerLocations(customerId);
@@ -556,6 +677,21 @@ export const updateCustomerLocation = async (req: Request, res: Response) => {
         await connection.beginTransaction();
 
         try {
+            // Get location info with customer ID
+            const locationInfo = await customerQueries.getCustomerLocationById(locationId, connection);
+            if (!locationInfo) {
+                throw new Error('Customer location not found');
+            }
+
+            // Role-based access control
+            if (!user.roles?.includes('SuperAdmin') && !user.roles?.includes('Admin')) {
+                // Employee: check if they have access to this customer
+                const hasAccess = await customerQueries.hasCustomerAccess(user.id, locationInfo.customer_id, connection);
+                if (!hasAccess) {
+                    throw new Error('Access denied: You are not authorized to update this customer location');
+                }
+            }
+
             const updated = await customerQueries.updateCustomerLocation(locationId, value, user.id, connection);
             
             if (!updated) {
@@ -596,11 +732,32 @@ export const deleteCustomerLocation = async (req: Request, res: Response) => {
             });
         }
 
+        // Get user ID from token payload
+        const user = (res.locals as any).user;
+        if (!user || !user.id) {
+            return res.status(401).json({ success: false, message: 'User information not found' });
+        }
+
         // Get database connection and start transaction
         connection = await db.getConnection();
         await connection.beginTransaction();
 
         try {
+            // Get location info with customer ID
+            const locationInfo = await customerQueries.getCustomerLocationById(locationId, connection);
+            if (!locationInfo) {
+                throw new Error('Customer location not found');
+            }
+
+            // Role-based access control
+            if (!user.roles?.includes('SuperAdmin') && !user.roles?.includes('Admin')) {
+                // Employee: check if they have access to this customer
+                const hasAccess = await customerQueries.hasCustomerAccess(user.id, locationInfo.customer_id, connection);
+                if (!hasAccess) {
+                    throw new Error('Access denied: You are not authorized to delete this customer location');
+                }
+            }
+
             const deleted = await customerQueries.deleteCustomerLocation(locationId, connection);
             
             if (!deleted) {
