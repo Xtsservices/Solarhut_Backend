@@ -10,7 +10,7 @@ const PRODUCT_LIST = [
     'Vikram Solar Panels 550 W M10 Bifacial G2G HC DCR – 6 Panels',
     'Jindal Structure for the 3 KW Roof Top Solar Plant',
     'GroWatt 3KW TL-X2 (Pro) Solar Invertor- 1',
-    'Civil Work for the Roof Top Solar Plant (Includes labor and material)',
+    'Civil Work for the Roof Top Solar Plant (Not Included)',
     'Havells SC 4.0 SQMM Solar DC Cable (RED)',
     'Havells SC 4.0 SQMM Solar DC Cable (BLACK) ',
     'Havells SC 4.0 SQMM FRLS (GREEN)',

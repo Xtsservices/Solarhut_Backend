@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS features (
     feature_name VARCHAR(255) NOT NULL UNIQUE,
     created_by INT NOT NULL,
     status ENUM('Active','Inactive') DEFAULT 'Active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMEST AMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_status (status),
     INDEX idx_created_by (created_by),
@@ -393,6 +393,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     solar_service ENUM('Residential Solar', 'Commercial Solar', 'Industrial Solar') NOT NULL,
     package_id INT,
     capacity VARCHAR(50),
+    capacity_raw VARCHAR(255),
     estimated_cost DECIMAL(12,2),
     actual_cost DECIMAL(12,2),
     job_priority ENUM('Low', 'Medium', 'High', 'Urgent') DEFAULT 'Medium',
@@ -808,7 +809,6 @@ CREATE TABLE IF NOT EXISTS bank_details (
     FOREIGN KEY (updated_by) REFERENCES employees(id) ON DELETE SET NULL
 )`;
 
-
 const insertDefaultRoles = async () => {
   const defaultRoles = [
     "SuperAdmin",
@@ -831,90 +831,104 @@ const insertDefaultSuperAdminEmployee = async () => {
 
   try {
     // --- Step 1: Get or create the SuperAdmin role ---
-    const [roleRows] = await db.execute(
-      `SELECT role_id FROM roles WHERE role_name = 'SuperAdmin' LIMIT 1`
-    ) as any;
+    const [roleRows] = (await db.execute(
+      `SELECT role_id FROM roles WHERE role_name = 'SuperAdmin' LIMIT 1`,
+    )) as any;
 
     let superAdminRoleId: number;
     if (roleRows.length > 0) {
       superAdminRoleId = roleRows[0].role_id;
     } else {
-      const [roleResult] = await db.execute(
-        `INSERT INTO roles (role_name, status) VALUES ('SuperAdmin', 'Active')`
-      ) as any;
+      const [roleResult] = (await db.execute(
+        `INSERT INTO roles (role_name, status) VALUES ('SuperAdmin', 'Active')`,
+      )) as any;
       superAdminRoleId = roleResult.insertId;
       console.log(`Created SuperAdmin role with ID: ${superAdminRoleId}`);
     }
 
     // --- Step 2: Get or create the SuperAdmin employee ---
-    const [existingEmployee] = await db.execute(
+    const [existingEmployee] = (await db.execute(
       `SELECT id FROM employees WHERE mobile = ? LIMIT 1`,
-      [superAdminMobile]
-    ) as any;
+      [superAdminMobile],
+    )) as any;
 
     let superAdminEmployeeId: number;
 
     if (existingEmployee.length > 0) {
       // Employee already exists — reuse the same ID
       superAdminEmployeeId = existingEmployee[0].id;
-      console.log(`SuperAdmin employee already exists with ID: ${superAdminEmployeeId}, skipping creation...`);
+      console.log(
+        `SuperAdmin employee already exists with ID: ${superAdminEmployeeId}, skipping creation...`,
+      );
     } else {
       // Generate next user_id
-      const [maxIdResult] = await db.execute(
-        `SELECT MAX(user_id) as max_id FROM employees`
-      ) as any;
+      const [maxIdResult] = (await db.execute(
+        `SELECT MAX(user_id) as max_id FROM employees`,
+      )) as any;
       const lastId = maxIdResult[0].max_id || "EMP000000";
       const numericPart = parseInt(lastId.substring(3)) + 1;
       const newUserId = `EMP${numericPart.toString().padStart(6, "0")}`;
 
       // Create employee FIRST — we need this id for features and permissions created_by
-      const [empResult] = await db.execute(
+      const [empResult] = (await db.execute(
         `INSERT INTO employees (user_id, first_name, last_name, email, mobile, joining_date, status)
          VALUES (?, ?, ?, ?, ?, CURDATE(), 'Active')`,
-        [newUserId, "Super", "Admin", "superadmin@solarhut.com", superAdminMobile]
-      ) as any;
+        [
+          newUserId,
+          "Super",
+          "Admin",
+          "superadmin@solarhut.com",
+          superAdminMobile,
+        ],
+      )) as any;
       superAdminEmployeeId = empResult.insertId;
-      console.log(`Created SuperAdmin employee with ID: ${superAdminEmployeeId}, user_id: ${newUserId}`);
+      console.log(
+        `Created SuperAdmin employee with ID: ${superAdminEmployeeId}, user_id: ${newUserId}`,
+      );
     }
 
     // --- Step 3: Ensure employee_roles assignment exists ---
-    const [existingRole] = await db.execute(
+    const [existingRole] = (await db.execute(
       `SELECT employee_id FROM employee_roles WHERE employee_id = ? AND role_id = ? LIMIT 1`,
-      [superAdminEmployeeId, superAdminRoleId]
-    ) as any;
+      [superAdminEmployeeId, superAdminRoleId],
+    )) as any;
 
     if (existingRole.length === 0) {
       await db.execute(
         `INSERT INTO employee_roles (employee_id, role_id, status) VALUES (?, ?, 'Active')`,
-        [superAdminEmployeeId, superAdminRoleId]
+        [superAdminEmployeeId, superAdminRoleId],
       );
-      console.log(`Assigned SuperAdmin role (ID: ${superAdminRoleId}) to employee ID: ${superAdminEmployeeId}`);
+      console.log(
+        `Assigned SuperAdmin role (ID: ${superAdminRoleId}) to employee ID: ${superAdminEmployeeId}`,
+      );
     } else {
-      console.log(`SuperAdmin role already assigned to employee ID: ${superAdminEmployeeId}, skipping...`);
+      console.log(
+        `SuperAdmin role already assigned to employee ID: ${superAdminEmployeeId}, skipping...`,
+      );
     }
 
     // --- Step 4: Ensure all features exist (created_by = superAdminEmployeeId) and assign permissions ---
     for (const featureName of allFeatures) {
       // Get or create the feature
-      const [featureRows] = await db.execute(
+      const [featureRows] = (await db.execute(
         `SELECT id FROM features WHERE feature_name = ? LIMIT 1`,
-        [featureName]
-      ) as any;
+        [featureName],
+      )) as any;
 
       let featureId: number;
       if (featureRows.length > 0) {
         featureId = featureRows[0].id;
         // Update created_by to current SuperAdmin employee id (in case it was orphaned)
-        await db.execute(
-          `UPDATE features SET created_by = ? WHERE id = ?`,
-          [superAdminEmployeeId, featureId]
-        );
+        await db.execute(`UPDATE features SET created_by = ? WHERE id = ?`, [
+          superAdminEmployeeId,
+          featureId,
+        ]);
       } else {
         // Feature does not exist — create it with superAdminEmployeeId as created_by
-        const [featureResult] = await db.execute(
+        const [featureResult] = (await db.execute(
           `INSERT INTO features (feature_name, created_by, status) VALUES (?, ?, 'Active')`,
-          [featureName, superAdminEmployeeId]
-        ) as any;
+          [featureName, superAdminEmployeeId],
+        )) as any;
         featureId = featureResult.insertId;
         console.log(`Created feature: ${featureName} with ID: ${featureId}`);
       }
@@ -924,50 +938,74 @@ const insertDefaultSuperAdminEmployee = async () => {
         await db.execute(
           `INSERT IGNORE INTO permissions (role_id, employee_id, feature_id, permission, created_by, status)
            VALUES (?, ?, ?, ?, ?, 'Active')`,
-          [superAdminRoleId, superAdminEmployeeId, featureId, perm, superAdminEmployeeId]
+          [
+            superAdminRoleId,
+            superAdminEmployeeId,
+            featureId,
+            perm,
+            superAdminEmployeeId,
+          ],
         );
       }
     }
-    console.log(`Ensured all permissions (read, create, edit, delete) for all features on SuperAdmin role`);
+    console.log(
+      `Ensured all permissions (read, create, edit, delete) for all features on SuperAdmin role`,
+    );
 
     // --- Step 5: Ensure all sub-features exist for features with sub-features ---
     for (const featureName of Object.keys(subFeaturesMap)) {
       // Get the feature ID
-      const [featureRows] = await db.execute(
+      const [featureRows] = (await db.execute(
         `SELECT id FROM features WHERE feature_name = ? LIMIT 1`,
-        [featureName]
-      ) as any;
+        [featureName],
+      )) as any;
 
       if (featureRows.length > 0) {
         const featureId = featureRows[0].id;
-        const subFeatures = subFeaturesMap[featureName as keyof typeof subFeaturesMap];
+        const subFeatures =
+          subFeaturesMap[featureName as keyof typeof subFeaturesMap];
 
         for (const subFeature of subFeatures) {
           // Check if sub-feature already exists
-          const [subFeatureRows] = await db.execute(
+          const [subFeatureRows] = (await db.execute(
             `SELECT id FROM sub_features WHERE feature_id = ? AND sub_feature_key = ? LIMIT 1`,
-            [featureId, subFeature.key]
-          ) as any;
+            [featureId, subFeature.key],
+          )) as any;
 
           if (subFeatureRows.length === 0) {
             // Sub-feature does not exist — create it
-            const [subFeatureResult] = await db.execute(
+            const [subFeatureResult] = (await db.execute(
               `INSERT INTO sub_features (feature_id, sub_feature_name, sub_feature_key, display_order, created_by, status) 
                VALUES (?, ?, ?, ?, ?, 'Active')`,
-              [featureId, subFeature.name, subFeature.key, subFeature.display_order, superAdminEmployeeId]
-            ) as any;
-            console.log(`Created sub-feature: ${subFeature.name} for feature: ${featureName} with ID: ${subFeatureResult.insertId}`);
+              [
+                featureId,
+                subFeature.name,
+                subFeature.key,
+                subFeature.display_order,
+                superAdminEmployeeId,
+              ],
+            )) as any;
+            console.log(
+              `Created sub-feature: ${subFeature.name} for feature: ${featureName} with ID: ${subFeatureResult.insertId}`,
+            );
           } else {
             // Update existing sub-feature to ensure consistency
             await db.execute(
               `UPDATE sub_features SET sub_feature_name = ?, display_order = ? WHERE feature_id = ? AND sub_feature_key = ?`,
-              [subFeature.name, subFeature.display_order, featureId, subFeature.key]
+              [
+                subFeature.name,
+                subFeature.display_order,
+                featureId,
+                subFeature.key,
+              ],
             );
           }
         }
       }
     }
-    console.log(`Ensured all sub-features exist for features with sub-feature mappings`);
+    console.log(
+      `Ensured all sub-features exist for features with sub-feature mappings`,
+    );
 
     console.log("SuperAdmin employee setup completed successfully");
   } catch (error) {
@@ -980,35 +1018,45 @@ const insertDefaultCountries = async () => {
   try {
     // We need a system user ID for created_by field
     // Let's try to get the first admin user, or use ID 1 as fallback
-    const [adminUsers] = await db.execute(
+    const [adminUsers] = (await db.execute(
       `SELECT e.id FROM employees e 
        INNER JOIN employee_roles er ON e.id = er.employee_id 
        INNER JOIN roles r ON er.role_id = r.role_id 
        WHERE r.role_name = 'Admin' AND e.status = 'Active' 
-       LIMIT 1`
-    ) as any;
-    
+       LIMIT 1`,
+    )) as any;
+
     const systemUserId = adminUsers.length > 0 ? adminUsers[0].id : 1;
 
     for (const country of countries) {
       // Check if country code already exists
-      const existingCountryByCode = await countryQueries.getCountryByCode(country.country_code);
+      const existingCountryByCode = await countryQueries.getCountryByCode(
+        country.country_code,
+      );
       if (existingCountryByCode) {
-        console.log(`Country with code ${country.country_code} already exists, skipping...`);
+        console.log(
+          `Country with code ${country.country_code} already exists, skipping...`,
+        );
         continue;
       }
 
       // Check if country name already exists (check against uppercase)
-      const existingCountryByName = await countryQueries.getCountryByName(country.name.toUpperCase());
+      const existingCountryByName = await countryQueries.getCountryByName(
+        country.name.toUpperCase(),
+      );
       if (existingCountryByName) {
-        console.log(`Country with name ${country.name} already exists, skipping...`);
+        console.log(
+          `Country with name ${country.name} already exists, skipping...`,
+        );
         continue;
       }
 
       // Create the country with the same logic as createCountry controller
       const aliasName = country.name; // Use the original name as alias
       // If name has spaces, keep original case; otherwise convert to uppercase
-      const countryName = country.name.includes(' ') ? country.name : country.name.toUpperCase();
+      const countryName = country.name.includes(" ")
+        ? country.name
+        : country.name.toUpperCase();
 
       const id = await countryQueries.createCountry(
         country.country_code,
@@ -1016,13 +1064,15 @@ const insertDefaultCountries = async () => {
         aliasName,
         country.currency_format,
         systemUserId,
-        'Active'
+        "Active",
       );
 
-      console.log(`Created default country: ${country.name} (${country.country_code}) with ID: ${id}`);
+      console.log(
+        `Created default country: ${country.name} (${country.country_code}) with ID: ${id}`,
+      );
     }
   } catch (error) {
-    console.error('Error inserting default countries:', error);
+    console.error("Error inserting default countries:", error);
     // Don't throw error to prevent app startup failure
   }
 };
@@ -1031,57 +1081,73 @@ const insertDefaultStates = async () => {
   try {
     // We need a system user ID for created_by field
     // Let's try to get the first admin user, or use ID 1 as fallback
-    const [adminUsers] = await db.execute(
+    const [adminUsers] = (await db.execute(
       `SELECT e.id FROM employees e 
        INNER JOIN employee_roles er ON e.id = er.employee_id 
        INNER JOIN roles r ON er.role_id = r.role_id 
        WHERE r.role_name = 'Admin' AND e.status = 'Active' 
-       LIMIT 1`
-    ) as any;
-    
+       LIMIT 1`,
+    )) as any;
+
     const systemUserId = adminUsers.length > 0 ? adminUsers[0].id : 1;
 
     for (const state of indianStates) {
       // Get country ID from country code
       const country = await countryQueries.getCountryByCode(state.country_code);
       if (!country) {
-        console.log(`Country with code ${state.country_code} not found, skipping state ${state.name}...`);
+        console.log(
+          `Country with code ${state.country_code} not found, skipping state ${state.name}...`,
+        );
         continue;
       }
 
       // Check if state code already exists for this country
-      const existingStateByCode = await stateQueries.getStateByCode(country.id, state.state_code);
+      const existingStateByCode = await stateQueries.getStateByCode(
+        country.id,
+        state.state_code,
+      );
       if (existingStateByCode) {
-        console.log(`State with code ${state.state_code} already exists for country ${state.country_code}, skipping...`);
+        console.log(
+          `State with code ${state.state_code} already exists for country ${state.country_code}, skipping...`,
+        );
         continue;
       }
 
       // Check if state name already exists for this country (check against uppercase)
-      const existingStateByName = await stateQueries.getStateByName(country.id, state.name.toUpperCase());
+      const existingStateByName = await stateQueries.getStateByName(
+        country.id,
+        state.name.toUpperCase(),
+      );
       if (existingStateByName) {
-        console.log(`State with name ${state.name} already exists for country ${state.country_code}, skipping...`);
+        console.log(
+          `State with name ${state.name} already exists for country ${state.country_code}, skipping...`,
+        );
         continue;
       }
 
       // Create the state with the same logic as createState controller
       const aliasName = state.name; // Use the original name as alias
       // If name has spaces, replace with underscores; otherwise keep original case
-      const stateName = state.name.includes(' ') ? state.name.replace(/\s+/g, '_') : state.name;
+      const stateName = state.name.includes(" ")
+        ? state.name.replace(/\s+/g, "_")
+        : state.name;
 
       const id = await stateQueries.createState(
         country.id,
         state.state_code,
         stateName,
         aliasName,
-        state.type as 'State' | 'UT',
+        state.type as "State" | "UT",
         systemUserId,
-        'Active'
+        "Active",
       );
 
-      console.log(`Created default state: ${state.name} (${state.state_code}) for ${state.country_code} with ID: ${id}`);
+      console.log(
+        `Created default state: ${state.name} (${state.state_code}) for ${state.country_code} with ID: ${id}`,
+      );
     }
   } catch (error) {
-    console.error('Error inserting default states:', error);
+    console.error("Error inserting default states:", error);
     // Don't throw error to prevent app startup failure
   }
 };
@@ -1090,48 +1156,62 @@ const insertDefaultDistricts = async () => {
   try {
     // We need a system user ID for created_by field
     // Let's try to get the first admin user, or use ID 1 as fallback
-    const [adminUsers] = await db.execute(
+    const [adminUsers] = (await db.execute(
       `SELECT e.id FROM employees e 
        INNER JOIN employee_roles er ON e.id = er.employee_id 
        INNER JOIN roles r ON er.role_id = r.role_id 
        WHERE r.role_name = 'Admin' AND e.status = 'Active' 
-       LIMIT 1`
-    ) as any;
-    
+       LIMIT 1`,
+    )) as any;
+
     const systemUserId = adminUsers.length > 0 ? adminUsers[0].id : 1;
 
     for (const district of indianDistricts) {
       // Get state ID from state code (search across all countries)
-      const [stateRows] = await db.execute(
+      const [stateRows] = (await db.execute(
         `SELECT s.id FROM states s WHERE s.state_code = ? AND s.status = 'Active'`,
-        [district.state_code]
-      ) as any;
-      
+        [district.state_code],
+      )) as any;
+
       if (stateRows.length === 0) {
-        console.log(`State with code ${district.state_code} not found, skipping district ${district.name}...`);
+        console.log(
+          `State with code ${district.state_code} not found, skipping district ${district.name}...`,
+        );
         continue;
       }
-      
+
       const state = stateRows[0];
 
       // Check if district code already exists for this state
-      const existingDistrictByCode = await districtQueries.getDistrictByCode(state.id, district.district_code);
+      const existingDistrictByCode = await districtQueries.getDistrictByCode(
+        state.id,
+        district.district_code,
+      );
       if (existingDistrictByCode) {
-        console.log(`District with code ${district.district_code} already exists for state ${district.state_code}, skipping...`);
+        console.log(
+          `District with code ${district.district_code} already exists for state ${district.state_code}, skipping...`,
+        );
         continue;
       }
 
       // Check if district name already exists for this state (check against uppercase)
-      const existingDistrictByName = await districtQueries.getDistrictByName(state.id, district.name.toUpperCase());
+      const existingDistrictByName = await districtQueries.getDistrictByName(
+        state.id,
+        district.name.toUpperCase(),
+      );
       if (existingDistrictByName) {
-        console.log(`District with name ${district.name} already exists for state ${district.state_code}, skipping...`);
+        console.log(
+          `District with name ${district.name} already exists for state ${district.state_code}, skipping...`,
+        );
         continue;
       }
 
       // Create the district with the same logic as createDistrict controller
       const aliasName = district.name; // Use the original name as alias
       // If name has spaces, replace with underscores; otherwise keep original case
-      const districtName = district.name.includes(' ') ? district.name.replace(/\s+/g, '_').toUpperCase() : district.name.toUpperCase();
+      const districtName = district.name.includes(" ")
+        ? district.name.replace(/\s+/g, "_").toUpperCase()
+        : district.name.toUpperCase();
 
       const id = await districtQueries.createDistrict(
         state.id,
@@ -1139,13 +1219,15 @@ const insertDefaultDistricts = async () => {
         districtName,
         aliasName,
         systemUserId,
-        'Active'
+        "Active",
       );
 
-      console.log(`Created default district: ${district.name} (${district.district_code}) for state ${district.state_code} with ID: ${id}`);
+      console.log(
+        `Created default district: ${district.name} (${district.district_code}) for state ${district.state_code} with ID: ${id}`,
+      );
     }
   } catch (error) {
-    console.error('Error inserting default districts:', error);
+    console.error("Error inserting default districts:", error);
     // Don't throw error to prevent app startup failure
   }
 };
@@ -1153,38 +1235,40 @@ const insertDefaultDistricts = async () => {
 const insertDefaultSolarCapacities = async () => {
   try {
     // Get a system user ID for created_by field
-    const [adminUsers] = await db.execute(
+    const [adminUsers] = (await db.execute(
       `SELECT e.id FROM employees e 
        INNER JOIN employee_roles er ON e.id = er.employee_id 
        INNER JOIN roles r ON er.role_id = r.role_id 
        WHERE r.role_name IN ('Admin', 'SuperAdmin') AND e.status = 'Active' 
-       LIMIT 1`
-    ) as any;
-    
+       LIMIT 1`,
+    )) as any;
+
     const systemUserId = adminUsers.length > 0 ? adminUsers[0].id : 1;
 
     // Default Inverter Types from frontend
     const defaultInverterTypes = [
       "GroWatt TL-X2 (Pro) On Grid Tied Solar Invertor",
-      "WAAREE On Grid Tied Solar Inverter", 
+      "WAAREE On Grid Tied Solar Inverter",
       "MicroTek On Grid Tied Solar Inverter",
     ];
 
     for (const inverterName of defaultInverterTypes) {
       // Check if inverter type already exists
-      const [existingRows] = await db.execute(
-        'SELECT id FROM inverter_types WHERE name = ?',
-        [inverterName]
-      ) as any;
+      const [existingRows] = (await db.execute(
+        "SELECT id FROM inverter_types WHERE name = ?",
+        [inverterName],
+      )) as any;
 
       if (existingRows.length === 0) {
         await db.execute(
-          'INSERT INTO inverter_types (name, status, created_by) VALUES (?, ?, ?)',
-          [inverterName, 'Active', systemUserId]
+          "INSERT INTO inverter_types (name, status, created_by) VALUES (?, ?, ?)",
+          [inverterName, "Active", systemUserId],
         );
         console.log(`Created default inverter type: ${inverterName}`);
       } else {
-        console.log(`Inverter type ${inverterName} already exists, skipping...`);
+        console.log(
+          `Inverter type ${inverterName} already exists, skipping...`,
+        );
       }
     }
 
@@ -1203,40 +1287,42 @@ const insertDefaultSolarCapacities = async () => {
 
     for (const productName of defaultProductDescriptions) {
       // Check if product description already exists
-      const [existingRows] = await db.execute(
-        'SELECT id FROM product_descriptions WHERE name = ?',
-        [productName]
-      ) as any;
+      const [existingRows] = (await db.execute(
+        "SELECT id FROM product_descriptions WHERE name = ?",
+        [productName],
+      )) as any;
 
       if (existingRows.length === 0) {
         await db.execute(
-          'INSERT INTO product_descriptions (name, status, created_by) VALUES (?, ?, ?)',
-          [productName, 'Active', systemUserId]
+          "INSERT INTO product_descriptions (name, status, created_by) VALUES (?, ?, ?)",
+          [productName, "Active", systemUserId],
         );
         console.log(`Created default product description: ${productName}`);
       } else {
-        console.log(`Product description ${productName} already exists, skipping...`);
+        console.log(
+          `Product description ${productName} already exists, skipping...`,
+        );
       }
     }
 
     // Default Structures from frontend
     const defaultStructures = [
       "Structure for the 3 KW Roof Top Solar Plant",
-      "Structure for the 4 KW Roof Top Solar Plant", 
+      "Structure for the 4 KW Roof Top Solar Plant",
       "Structure for the 5 KW Roof Top Solar Plant",
     ];
 
     for (const structureName of defaultStructures) {
       // Check if structure already exists
-      const [existingRows] = await db.execute(
-        'SELECT id FROM structures WHERE name = ?',
-        [structureName]
-      ) as any;
+      const [existingRows] = (await db.execute(
+        "SELECT id FROM structures WHERE name = ?",
+        [structureName],
+      )) as any;
 
       if (existingRows.length === 0) {
         await db.execute(
-          'INSERT INTO structures (name, status, created_by) VALUES (?, ?, ?)',
-          [structureName, 'Active', systemUserId]
+          "INSERT INTO structures (name, status, created_by) VALUES (?, ?, ?)",
+          [structureName, "Active", systemUserId],
         );
         console.log(`Created default structure: ${structureName}`);
       } else {
@@ -1244,7 +1330,7 @@ const insertDefaultSolarCapacities = async () => {
       }
     }
   } catch (error) {
-    console.error('Error inserting default solar capacities:', error);
+    console.error("Error inserting default solar capacities:", error);
     // Don't throw error to prevent app startup failure
   }
 };
@@ -1256,11 +1342,15 @@ const migrateJobAssignmentsTable = async () => {
       ALTER TABLE job_assignments 
       MODIFY COLUMN role_type VARCHAR(50) NULL
     `);
-    console.log("Successfully migrated job_assignments table - role_type column now allows NULL");
+    console.log(
+      "Successfully migrated job_assignments table - role_type column now allows NULL",
+    );
   } catch (error: any) {
     // If table doesn't exist, ignore the error as it will be created with correct schema
-    if (error.code === 'ER_NO_SUCH_TABLE') {
-      console.log("job_assignments table doesn't exist yet, will be created with correct schema");
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      console.log(
+        "job_assignments table doesn't exist yet, will be created with correct schema",
+      );
     } else {
       console.log("Migration for job_assignments table:", error.message);
     }
@@ -1271,17 +1361,17 @@ const migrateJobPaymentsTable = async () => {
   try {
     // Check if job_payments table exists and add tax-related columns
     const taxColumns = [
-      'ADD COLUMN discount_amount DECIMAL(12,2) DEFAULT 0',
-      'ADD COLUMN taxable_amount DECIMAL(12,2) DEFAULT 0',
-      'ADD COLUMN gst_rate DECIMAL(5,2) DEFAULT 0',
-      'ADD COLUMN cgst_rate DECIMAL(5,2) DEFAULT 0',
-      'ADD COLUMN sgst_rate DECIMAL(5,2) DEFAULT 0',
-      'ADD COLUMN igst_rate DECIMAL(5,2) DEFAULT 0',
-      'ADD COLUMN cgst_amount DECIMAL(12,2) DEFAULT 0',
-      'ADD COLUMN sgst_amount DECIMAL(12,2) DEFAULT 0',
-      'ADD COLUMN igst_amount DECIMAL(12,2) DEFAULT 0',
-      'ADD COLUMN total_tax_amount DECIMAL(12,2) DEFAULT 0',
-      'ADD COLUMN total_amount DECIMAL(12,2) DEFAULT 0'
+      "ADD COLUMN discount_amount DECIMAL(12,2) DEFAULT 0",
+      "ADD COLUMN taxable_amount DECIMAL(12,2) DEFAULT 0",
+      "ADD COLUMN gst_rate DECIMAL(5,2) DEFAULT 0",
+      "ADD COLUMN cgst_rate DECIMAL(5,2) DEFAULT 0",
+      "ADD COLUMN sgst_rate DECIMAL(5,2) DEFAULT 0",
+      "ADD COLUMN igst_rate DECIMAL(5,2) DEFAULT 0",
+      "ADD COLUMN cgst_amount DECIMAL(12,2) DEFAULT 0",
+      "ADD COLUMN sgst_amount DECIMAL(12,2) DEFAULT 0",
+      "ADD COLUMN igst_amount DECIMAL(12,2) DEFAULT 0",
+      "ADD COLUMN total_tax_amount DECIMAL(12,2) DEFAULT 0",
+      "ADD COLUMN total_amount DECIMAL(12,2) DEFAULT 0",
     ];
 
     for (const column of taxColumns) {
@@ -1289,8 +1379,10 @@ const migrateJobPaymentsTable = async () => {
         await db.execute(`ALTER TABLE job_payments ${column}`);
       } catch (columnError: any) {
         // If column already exists, skip it
-        if (columnError.code !== 'ER_DUP_FIELDNAME') {
-          console.log(`Error adding column to job_payments: ${columnError.message}`);
+        if (columnError.code !== "ER_DUP_FIELDNAME") {
+          console.log(
+            `Error adding column to job_payments: ${columnError.message}`,
+          );
         }
       }
     }
@@ -1302,10 +1394,14 @@ const migrateJobPaymentsTable = async () => {
       WHERE taxable_amount = 0 OR total_amount = 0
     `);
 
-    console.log("Successfully migrated job_payments table - added tax calculation fields");
+    console.log(
+      "Successfully migrated job_payments table - added tax calculation fields",
+    );
   } catch (error: any) {
-    if (error.code === 'ER_NO_SUCH_TABLE') {
-      console.log("job_payments table doesn't exist yet, will be created with correct schema");
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      console.log(
+        "job_payments table doesn't exist yet, will be created with correct schema",
+      );
     } else {
       console.log("Migration for job_payments table:", error.message);
     }
@@ -1316,9 +1412,9 @@ const migrateRolesTable = async () => {
   try {
     // Add status and timestamps to roles table
     const rolesColumns = [
-      'ADD COLUMN status ENUM(\'Active\',\'Inactive\') DEFAULT \'Active\'',
-      'ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
-      'ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'
+      "ADD COLUMN status ENUM('Active','Inactive') DEFAULT 'Active'",
+      "ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
     ];
 
     for (const column of rolesColumns) {
@@ -1326,16 +1422,20 @@ const migrateRolesTable = async () => {
         await db.execute(`ALTER TABLE roles ${column}`);
       } catch (columnError: any) {
         // If column already exists, skip it
-        if (columnError.code !== 'ER_DUP_FIELDNAME') {
+        if (columnError.code !== "ER_DUP_FIELDNAME") {
           console.log(`Error adding column to roles: ${columnError.message}`);
         }
       }
     }
 
-    console.log("Successfully migrated roles table - added status and timestamps");
+    console.log(
+      "Successfully migrated roles table - added status and timestamps",
+    );
   } catch (error: any) {
-    if (error.code === 'ER_NO_SUCH_TABLE') {
-      console.log("roles table doesn't exist yet, will be created with correct schema");
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      console.log(
+        "roles table doesn't exist yet, will be created with correct schema",
+      );
     } else {
       console.log("Migration for roles table:", error.message);
     }
@@ -1346,7 +1446,7 @@ const migrateContactsTable = async () => {
   try {
     // Add status column to contacts table
     const contactsColumns = [
-      'ADD COLUMN status ENUM(\'New\',\'In Progress\',\'Resolved\',\'Closed\') DEFAULT \'New\''
+      "ADD COLUMN status ENUM('New','In Progress','Resolved','Closed') DEFAULT 'New'",
     ];
 
     for (const column of contactsColumns) {
@@ -1354,16 +1454,20 @@ const migrateContactsTable = async () => {
         await db.execute(`ALTER TABLE contacts ${column}`);
       } catch (columnError: any) {
         // If column already exists, skip it
-        if (columnError.code !== 'ER_DUP_FIELDNAME') {
-          console.log(`Error adding column to contacts: ${columnError.message}`);
+        if (columnError.code !== "ER_DUP_FIELDNAME") {
+          console.log(
+            `Error adding column to contacts: ${columnError.message}`,
+          );
         }
       }
     }
 
     console.log("Successfully migrated contacts table - added status column");
   } catch (error: any) {
-    if (error.code === 'ER_NO_SUCH_TABLE') {
-      console.log("contacts table doesn't exist yet, will be created with correct schema");
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      console.log(
+        "contacts table doesn't exist yet, will be created with correct schema",
+      );
     } else {
       console.log("Migration for contacts table:", error.message);
     }
@@ -1411,7 +1515,7 @@ export const initializeDatabase = async () => {
     await migrateJobPaymentsTable();
     await migrateRolesTable();
     await migrateContactsTable();
-    
+
     // Run all status enum migrations
     await runStatusMigrations();
 
